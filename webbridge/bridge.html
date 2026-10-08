@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ponte Web do Fit3</title>
+<style>
+  :root { --bg:#10131a; --fg:#e8ebf2; --mut:#8b93a7; --card:#1a1f2b; --acc:#ffd24a; --ok:#4ac36a; --bad:#e5534b; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f4f5f8; --fg:#1b2030; --mut:#5d6578; --card:#ffffff; --acc:#b57900; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:4px 0 12px; } .card { background:var(--card); border-radius:12px; padding:14px; margin:12px 0; }
+  button { font:inherit; padding:8px 14px; border-radius:8px; border:1px solid #0003; background:var(--acc); color:#111; cursor:pointer; margin:2px 4px 2px 0; }
+  button.sec { background:transparent; color:var(--fg); border-color:var(--mut); } button:disabled { opacity:.5; cursor:default; }
+  input[type=text] { width:100%; box-sizing:border-box; padding:9px; border-radius:8px; border:1px solid var(--mut); background:transparent; color:var(--fg); font:inherit; }
+  #log { height:260px; overflow:auto; background:#0006; color:#d7dcea; border-radius:8px; padding:8px; font:12px/1.4 ui-monospace, Consolas, monospace; white-space:pre-wrap; }
+  #view { width:512px; max-width:100%; aspect-ratio:256/340; image-rendering:pixelated; background:#fff; border-radius:8px; outline:none; cursor:pointer; display:block; }
+  #view:focus { box-shadow:0 0 0 3px var(--acc); }
+  .bar { display:flex; gap:6px; margin-bottom:8px; } .bar input { flex:1; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:99px; background:#0003; margin-left:8px; font-size:13px; } .ok { color:var(--ok); } .bad { color:var(--bad); }
+  small { color:var(--mut); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Ponte Web do Fit3 <span id="state" class="pill">desconectado</span></h1>
+  <div class="card">
+    <button id="btnPair">1. Escolher o relógio (Bluetooth)</button>
+    <button id="btnTest" class="sec" disabled>2. Testar arquivos</button>
+    <button id="btnAuto" class="sec" disabled>3. Ligar modo navegador</button>
+    <label style="margin-left:8px"><input type="checkbox" id="keep" checked> manter conexão aberta</label>
+    <div><small>Pareie o relógio com o PC antes. O modo navegador atende os pedidos de página que o relógio grava no arquivo <code>/user/web_req.txt</code> e devolve em <code>/user/web_page.txt</code>. Mantenha esta página aberta e o relógio perto.</small></div>
+  </div>
+  <div class="card">
+    <label for="q"><b>Enviar uma página agora</b> (endereço ou busca)</label>
+    <input id="q" type="text" placeholder="ex.: example.com  ou  clima em Recife">
+    <button id="btnGo" disabled>Buscar e enviar ao relógio</button>
+  </div>
+  <div class="card">
+    <b>Controle pelo teclado e mouse do PC</b> <small>(funciona mesmo sem o relógio conectado; o quadro também vai para o relógio quando ele está conectado)</small>
+    <div class="bar" style="margin-top:8px">
+      <button class="sec" id="pcBack">&lt;</button><button class="sec" id="pcFwd">&gt;</button><button class="sec" id="pcReload">Recarregar</button>
+      <input id="addr" type="text" placeholder="endereço ou busca + Enter">
+      <button class="sec" id="pcZoomOut">A-</button><button class="sec" id="pcZoomIn">A+</button>
+    </div>
+    <canvas id="view" width="256" height="340" tabindex="0" title="Clique para focar; clique, roda do mouse e teclado funcionam aqui"></canvas>
+    <div><small>Clique na imagem para clicar; roda do mouse rola; digite normalmente (Enter, Backspace, Tab, setas, PgUp/PgDn, Ctrl+V cola). A imagem é o que aparece no relógio.</small></div>
+  </div>
+  <div class="card"><div id="log" aria-live="polite"></div></div>
+</main>
+<script>
+'use strict';
+const SERVICE_UUID = 'db764ac8-4b08-7f25-aafe-59d03c27bae3';
+const REQ_PATH = '/user/web_req.txt', PAGE_PATH = '/user/web_page.txt', FRAME_PATH = '/user/br_frame.bin', TEST_PATH = '/user/web_test.txt';
+let shared = null, keepOpen = true;
+const enc = new TextEncoder(), dec = new TextDecoder();
+const $ = id => document.getElementById(id);
+let port = null, auto = false, lastSeq = 0, busy = false, outSeq = 1000;
+const delay = ms => new Promise(r => setTimeout(r, ms));
+function log(s, cls) { const d = $('log'); d.textContent += '[' + new Date().toLocaleTimeString() + '] ' + s + '\n'; d.scrollTop = d.scrollHeight; if (cls) setState(s, cls); }
+function setState(t, cls) { const e = $('state'); e.textContent = t.slice(0, 40); e.className = 'pill ' + (cls || ''); }
+
+const crcTable = Uint32Array.from({ length: 256 }, (_, n) => { for (let k = 0; k < 8; k++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1; return n >>> 0; });
+function crc32(b) { let c = 0xffffffff; for (const x of b) c = crcTable[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+
+class Link {   // same wire protocol as the Fit3 flasher (Web Serial over the watch's Bluetooth serial service)
+  constructor(p) { this.p = p; this.pending = new Uint8Array(); }
+  async open() { await this.p.open({ baudRate: 115200, bufferSize: 262144, flowControl: 'none' }); this.r = this.p.readable.getReader(); this.w = this.p.writable.getWriter(); }
+  async close() { try { await this.r.cancel(); } catch {} try { await this.w.abort(); } catch {} try { this.r.releaseLock(); } catch {} try { this.w.releaseLock(); } catch {} try { await this.p.close(); } catch {} }
+  async send(d) { await this.w.write(typeof d === 'string' ? enc.encode(d) : d); }
+  async exact(n, ms = 15000) {
+    const out = new Uint8Array(n); let used = 0;
+    while (used < n) {
+      if (!this.pending.length) {
+        const t = new Promise((_, rej) => setTimeout(() => rej(new Error('o relógio não respondeu')), ms));
+        const { value, done } = await Promise.race([this.r.read(), t]); if (done) throw new Error('conexão encerrada'); this.pending = value;
+      }
+      const c = Math.min(this.pending.length, n - used); out.set(this.pending.subarray(0, c), used); used += c; this.pending = this.pending.subarray(c);
+    }
+    return out;
+  }
+  async expect(t) { const got = dec.decode(await this.exact(t.length)); if (got !== t) throw new Error('resposta inesperada: ' + JSON.stringify(got) + ' (esperado ' + t + ')'); }
+}
+let lockTail = Promise.resolve();
+function exclusive(fn) { const run = lockTail.then(fn, fn); lockTail = run.catch(() => {}); return run; }
+async function withLink(fn) { return exclusive(() => withLinkRaw(fn)); }
+async function withLinkRaw(fn) {
+  if (keepOpen) {                                  // keep one Bluetooth serial connection open: far lower latency than reconnecting for every poll
+    try { if (!shared) { shared = new Link(port); await shared.open(); } return await fn(shared); }
+    catch (e) { try { await shared.close(); } catch {} shared = null; throw e; }
+  }
+  const l = new Link(port); await l.open();
+  try { return await fn(l); } finally { await l.close(); }
+}
+async function writeFile(l, path, bytes) {
+  await l.send('300'); await l.expect('300');
+  await l.send('33bin,' + path + ',' + bytes.length); await l.expect('330');
+  const frame = new Uint8Array(39604), dv = new DataView(frame.buffer);
+  for (let off = 0; off < bytes.length; off += 39600) {
+    const blk = bytes.subarray(off, Math.min(off + 39600, bytes.length)); frame.set(blk); dv.setUint32(blk.length, crc32(blk), true);
+    await l.send(frame.subarray(0, blk.length + 4)); await l.expect('310');
+  }
+  await l.send('32'); await l.expect('320'); await delay(250); await l.send('34'); await l.expect('340');
+}
+async function readFile(l, path) {     // returns Uint8Array or null when the file does not exist
+  await l.send(enc.encode('061' + path + '\0'));
+  const h = await l.exact(5); if (h[0] !== 0x40) return null;
+  const total = new DataView(h.buffer).getUint32(1, false); const out = new Uint8Array(total); let got = 0;
+  while (got < total) {
+    await l.send('062'); const hh = await l.exact(5); const n = new DataView(hh.buffer).getUint32(1, false);
+    if (hh[0] !== 0x40 || !n || n > total - got) throw new Error('bloco inválido'); const data = await l.exact(n, 60000); await l.exact(4, 60000);
+    out.set(data, got); got += n;
+  }
+  await l.send('062'); await delay(100); return out;
+}
+
+$('btnPair').onclick = async () => {
+  try {
+    port = await navigator.serial.requestPort({ filters: [{ bluetoothServiceClassId: SERVICE_UUID }], allowedBluetoothServiceClassIds: [SERVICE_UUID] });
+    $('btnTest').disabled = $('btnAuto').disabled = $('btnGo').disabled = false; log('relógio escolhido', 'ok');
+  } catch (e) { log('não escolhido: ' + e.message, 'bad'); }
+};
+$('btnTest').onclick = async () => {
+  try {
+    const msg = enc.encode('Teste da ponte Fit3 ' + new Date().toISOString() + '\n'); log('escrevendo ' + TEST_PATH + ' (' + msg.length + ' bytes)...');
+    await withLink(l => writeFile(l, TEST_PATH, msg)); await delay(1500);
+    const back = await withLink(l => readFile(l, TEST_PATH));
+    if (!back) { log('ARQUIVO NÃO ENCONTRADO depois da escrita: o relógio pode não aceitar este caminho', 'bad'); return; }
+    log('lido de volta: ' + JSON.stringify(dec.decode(back)), dec.decode(back) === dec.decode(msg) ? 'ok' : 'bad');
+    log(dec.decode(back) === dec.decode(msg) ? 'TESTE OK: escrita e leitura de arquivos funcionam' : 'conteúdo diferente do enviado');
+  } catch (e) { log('falha no teste: ' + e.message, 'bad'); }
+};
+async function fetchPage(q, seq) { const r = await fetch('/api/page?seq=' + seq + '&q=' + encodeURIComponent(q)); return new Uint8Array(await r.arrayBuffer()); }
+async function sendPage(q, seq) {
+  log('buscando "' + q + '"...'); const bytes = await fetchPage(q, seq); log('página convertida: ' + bytes.length + ' bytes; enviando ao relógio...');
+  await withLink(l => writeFile(l, PAGE_PATH, bytes)); log('enviado (seq ' + seq + ')', 'ok');
+}
+$('btnGo').onclick = async () => {
+  const q = $('q').value.trim(); if (!q || busy) return; busy = true;
+  try { await sendPage(q, ++outSeq); } catch (e) { log('erro: ' + e.message, 'bad'); } finally { busy = false; }
+};
+async function answer(seq, lines) {
+  if (lines[0] && lines[0].startsWith('text ')) {                       // text reader request
+    const q = lines[0].slice(5).trim(); log('texto #' + seq + ': ' + q); await sendPage(q, seq); return;
+  }
+  log('navegador #' + seq + ': ' + lines.join(' | '));
+  const r = await fetch('/api/b?seq=' + seq + '&cmd=' + encodeURIComponent(lines.join('\n'))); const bytes = new Uint8Array(await r.arrayBuffer());
+  log('quadro ' + bytes.length + ' bytes; enviando...'); await withLink(l => writeFile(l, FRAME_PATH, bytes)); log('quadro enviado (seq ' + seq + ')', 'ok');
+}
+async function poll() {
+  if (!auto) return; if (busy) { setTimeout(poll, 500); return; } busy = true;
+  try {
+    const req = await withLink(l => readFile(l, REQ_PATH));
+    if (req && req.length) {
+      const t = dec.decode(req).split('\n'); const seq = parseInt((t[0] || '').replace(/^R/, ''), 10); const lines = t.slice(1).map(x => x.trim()).filter(Boolean);
+      if (seq && seq !== lastSeq && lines.length) { lastSeq = seq; await answer(seq, lines); }
+    }
+  } catch (e) { log('poll: ' + e.message); } finally { busy = false; }
+  if (auto) setTimeout(poll, keepOpen ? 600 : 2200);
+}
+$('keep').onchange = async e => { keepOpen = e.target.checked; if (!keepOpen && shared) { try { await shared.close(); } catch {} shared = null; } };
+$('btnAuto').onclick = () => {
+  auto = !auto; $('btnAuto').textContent = auto ? '3. Desligar modo navegador' : '3. Ligar modo navegador';
+  if (auto) { log('modo navegador ligado: atendendo pedidos do relógio', 'ok'); poll(); } else log('modo navegador desligado');
+};
+
+// ---------------- PC mouse + keyboard control (preview canvas) ----------------
+const view = $('view'), vctx = view.getContext('2d');
+let pcQueue = [], pcBusy = false, typed = '', typeTimer = null, wheelAcc = 0, wheelTimer = null, watchPending = null, watchBusy = false;
+function drawFrame(bytes) {
+  if (bytes.length < 192 || bytes[0] !== 0x46) return; const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const mode = bytes[10], len = dv.getUint32(12, true), pal = []; for (let i = 0; i < 16; i++) { const p = dv.getUint16(16 + i * 2, true); pal.push([((p >> 11) & 31) * 255 / 31, ((p >> 5) & 63) * 255 / 63, (p & 31) * 255 / 31]); }
+  const img = vctx.createImageData(256, 340), px = img.data; let o = 0; const put = c => { if (o < 256 * 340) { px[o * 4] = pal[c][0]; px[o * 4 + 1] = pal[c][1]; px[o * 4 + 2] = pal[c][2]; px[o * 4 + 3] = 255; o++; } };
+  for (let i = 0; i < len; i++) { const v = bytes[192 + i]; if (mode === 0) { put(v >> 4); put(v & 15); } else for (let r = (v >> 4) + 1; r > 0; r--) put(v & 15); }
+  vctx.putImageData(img, 0, 0);
+  const url = new TextDecoder().decode(bytes.subarray(88, 192)).replace(/\0.*$/s, ''), title = new TextDecoder().decode(bytes.subarray(48, 88)).replace(/\0.*$/s, '');
+  if (document.activeElement !== $('addr')) $('addr').value = url; if (title) document.title = title + ' - Ponte Web do Fit3';
+}
+async function pumpWatch() {
+  if (watchBusy || !watchPending || !port) return; watchBusy = true;
+  try { while (watchPending) { const b = watchPending; watchPending = null; await withLink(l => writeFile(l, FRAME_PATH, b)); } } catch (e) { log('relógio: ' + e.message); } finally { watchBusy = false; }
+}
+async function pcRun(lines) {
+  pcQueue.push(lines); if (pcBusy) return; pcBusy = true;
+  while (pcQueue.length) {
+    const l = pcQueue.shift();
+    try { const seq = ++outSeq; const r = await fetch('/api/b?seq=' + seq + '&cmd=' + encodeURIComponent(l.join('\n'))); const bytes = new Uint8Array(await r.arrayBuffer()); drawFrame(bytes); if (port) { watchPending = bytes; pumpWatch(); } }
+    catch (e) { log('erro: ' + e.message, 'bad'); }
+  }
+  pcBusy = false;
+}
+function flushTyped() { if (typed) { const t = typed; typed = ''; pcRun(['type ' + t]); } }
+const SPECIAL = new Set(['Backspace', 'Enter', 'Tab', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', 'Delete']);
+view.addEventListener('click', e => { view.focus(); const r = view.getBoundingClientRect(); flushTyped(); pcRun(['click ' + Math.round((e.clientX - r.left) * 256 / r.width) + ' ' + Math.round((e.clientY - r.top) * 340 / r.height)]); });
+view.addEventListener('wheel', e => { e.preventDefault(); const r = view.getBoundingClientRect(); wheelAcc += e.deltaY * 256 / r.width; clearTimeout(wheelTimer); wheelTimer = setTimeout(() => { const d = Math.round(wheelAcc); wheelAcc = 0; if (d) pcRun(['scroll ' + d]); }, 90); }, { passive: false });
+view.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') { e.preventDefault(); navigator.clipboard.readText().then(t => { flushTyped(); if (t) pcRun(['type ' + t.replace(/\r?\n/g, ' ')]); }).catch(() => log('não consegui ler a área de transferência')); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (SPECIAL.has(e.key)) { e.preventDefault(); flushTyped(); pcRun(['key ' + e.key]); }
+  else if (e.key.length === 1) { e.preventDefault(); typed += e.key; clearTimeout(typeTimer); typeTimer = setTimeout(flushTyped, 350); }
+});
+$('addr').addEventListener('keydown', e => { if (e.key === 'Enter') { const q = e.target.value.trim(); if (q) pcRun(['go ' + q]); } });
+$('pcBack').onclick = () => pcRun(['back']); $('pcFwd').onclick = () => pcRun(['fwd']); $('pcReload').onclick = () => pcRun(['reload']);
+$('pcZoomOut').onclick = () => pcRun(['zoom -1']); $('pcZoomIn').onclick = () => pcRun(['zoom 1']);
+vctx.fillStyle = '#222'; vctx.fillRect(0, 0, 256, 340); vctx.fillStyle = '#ccc'; vctx.font = '14px sans-serif'; vctx.fillText('Digite um endereço acima e tecle Enter', 12, 40);
+if (!('serial' in navigator)) log('Este navegador não tem Web Serial. Use Chrome ou Edge no PC.', 'bad');
+</script>
+</body>
+</html>

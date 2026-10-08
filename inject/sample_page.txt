@@ -1,0 +1,37 @@
+W1
+S42
+Uhttps://exemplo.com.br/
+TAnação: Teste de leitura - Fit3
+# Notícias do dia
+Parágrafo 1: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 1[1] e mais algumas palavras para ocupar espaço.
+Parágrafo 2: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 2[2] e mais algumas palavras para ocupar espaço.
+Parágrafo 3: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 3[3] e mais algumas palavras para ocupar espaço.
+Parágrafo 4: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 4[4] e mais algumas palavras para ocupar espaço.
+Parágrafo 5: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 5[5] e mais algumas palavras para ocupar espaço.
+Parágrafo 6: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 6[6] e mais algumas palavras para ocupar espaço.
+Parágrafo 7: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 7[7] e mais algumas palavras para ocupar espaço.
+Parágrafo 8: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 8[8] e mais algumas palavras para ocupar espaço.
+Parágrafo 9: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 9[9] e mais algumas palavras para ocupar espaço.
+Parágrafo 10: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 10[10] e mais algumas palavras para ocupar espaço.
+Parágrafo 11: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 11[11] e mais algumas palavras para ocupar espaço.
+Parágrafo 12: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 12[12] e mais algumas palavras para ocupar espaço.
+Parágrafo 13: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 13[13] e mais algumas palavras para ocupar espaço.
+Parágrafo 14: este é um texto de exemplo bastante longo para testar a quebra de linhas por palavra no leitor do relógio, com link número 14[14] e mais algumas palavras para ocupar espaço.
+
+- Item um
+- Item dois
+
+L1	https://exemplo.com.br/materia/1
+L2	https://exemplo.com.br/materia/2
+L3	https://exemplo.com.br/materia/3
+L4	https://exemplo.com.br/materia/4
+L5	https://exemplo.com.br/materia/5
+L6	https://exemplo.com.br/materia/6
+L7	https://exemplo.com.br/materia/7
+L8	https://exemplo.com.br/materia/8
+L9	https://exemplo.com.br/materia/9
+L10	https://exemplo.com.br/materia/10
+L11	https://exemplo.com.br/materia/11
+L12	https://exemplo.com.br/materia/12
+L13	https://exemplo.com.br/materia/13
+L14	https://exemplo.com.br/materia/14

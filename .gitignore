@@ -1,0 +1,14 @@
+# never commit firmware (Samsung's property), build output or captures
+firmware/
+work/
+dist/
+*.bin
+*.elf
+*.o
+*.exe
+*.ppm
+*.png
+inject/lang/
+kbd/kbd_font.h
+kbd/font8x12.json
+node_modules/
