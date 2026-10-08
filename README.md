@@ -1,7 +1,7 @@
 # fit3-mods: apps injetados no Galaxy Fit3 (SM-R390, firmware R390XXU0AZA3)
 
 Projeto **não oficial** e **sem vínculo com a Samsung**. Reúne as ferramentas e o código para injetar apps pequenos na imagem principal do
-firmware AZA3 e reempacotá-la para o instalador web [fit3-flasher](https://github.com/) (o mesmo que você já usa).
+firmware AZA3 e reempacotá-la para o instalador web fit3-flasher (o mesmo que você já usa).
 
 > **Aviso.** Gravar firmware modificado pode **inutilizar o relógio** e anula a garantia. Faça por sua conta e risco, com bateria carregada
 > e tendo o `stock-aza3.bin` original à mão. **Este repositório não contém firmware da Samsung** e você não deve publicar os pacotes gerados
