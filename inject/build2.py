@@ -16,6 +16,8 @@ HOOKS = [(0x2c1d0802, 'cave', 0x2c112f58),        # quick-reply click handler: s
 LANG = [68, 52, 30, 13]
 name = sys.argv[1] if len(sys.argv) > 1 else 'apps'
 DEFS = ['-DNO_DOOM'] if '--blocks' in sys.argv else ['-DNO_GAMES', '-DMINI_GAMES']                      # third-party games are not part of this repository
+KBD_ONLY = '--kbd-only' in sys.argv                                  # only the reply keyboard: no launcher, games, readers or relabelled settings entry
+if KBD_ONLY: DEFS += ['-DNO_GAMES', '-DNO_WEB', '-DKBD_ONLY']; HOOKS = [h for h in HOOKS if h[1] != 'cave_menu']
 if '--gb' in sys.argv: DEFS.append('-DWITH_GB')                       # Game Boy emulator tile
 if '--nodoom' in sys.argv: DEFS.append('-DNO_DOOM')                  # leave the Doom-style game out
 if '--noweb' in sys.argv: DEFS.append('-DNO_WEB')                    # no Web/Text readers (and no Internet/AI): fully offline build
@@ -75,10 +77,10 @@ for hook, sym, orig in HOOKS:
     print('hook %#x: bl %#x -> bl %#x (%s)' % (hook, orig, syms[sym], sym))
 open('main_%s.bin' % name, 'wb').write(img)
 
-run(sys.executable, '-I', 'patch_lang.py')
+if not KBD_ONLY: run(sys.executable, '-I', 'patch_lang.py')
 out = os.path.join(H, 'fit3-%s.bin' % name)
 args = [sys.executable, '-I', os.path.join(TOOLS, 'repack.py'), STOCK, out, '2=main_%s.bin' % name]
-args += ['%d=lang\\%d.bin' % (i, i) for i in LANG if os.path.exists('lang\\%d.bin' % i)]
+if not KBD_ONLY: args += ['%d=lang\\%d.bin' % (i, i) for i in LANG if os.path.exists('lang\\%d.bin' % i)]
 run(*args)
 print(subprocess.run(['node', os.path.join(TOOLS, 'val.mjs'), out], capture_output=True, text=True).stdout.strip())
 os.makedirs(DIST, exist_ok=True); shutil.copy(out, os.path.join(DIST, 'fit3-%s.bin' % name))

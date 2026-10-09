@@ -162,7 +162,11 @@ static int menu_open(void *root);
 #include "webreader.inc.c"
 #include "browser.inc.c"
 #endif
+#ifdef KBD_ONLY
+int menu_hook(void *root, int page) { (void)root; (void)page; return 0; }          /* no launcher in the keyboard-only build */
+#else
 #include "menu.inc.c"
+#endif
 
 /* ================= hook ================= */
 /* Quick-reply tap hook. By default EVERY quick reply opens the keyboard, pre-filled with that reply's text (edit it, or clear it and type; OK sends).
