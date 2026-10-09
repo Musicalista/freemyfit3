@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
     _setmode(_fileno(stdin), _O_BINARY); _setmode(_fileno(stdout), _O_BINARY);
 #endif
     memcpy(fake_dev[0], "\x11\x22\x33\x44\x55\x66", 6); fake_dev[0][6] = 1;           /* a connected phone in slot 0 */
-    if (!(argc > 1 && argv[1][0] == 'a' ? ai_open((void *)1, 0) : net_open((void *)1, 0))) return 2;
+    if (!(argc > 1 && argv[1][0] == 'a' ? ai_open((void *)1, 0) : argc > 1 && argv[1][0] == 'd' ? dial_open((void *)1, 0) : net_open((void *)1, 0))) return 2;
     g_wr = *(void **)(fake_timer + 0xC); WR *w = (WR *)g_wr;
     for (;;) {
         uint8_t h[3]; if (fread(h, 1, 3, stdin) != 3) break; int n = (h[1] << 8) | h[2]; if (n > (int)sizeof in - 1 || (n && fread(in, 1, (size_t)n, stdin) != (size_t)n)) break; in[n] = 0;

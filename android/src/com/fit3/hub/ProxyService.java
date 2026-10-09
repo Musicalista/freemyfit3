@@ -26,6 +26,7 @@ public final class ProxyService extends Service {
                 Groq groq = new Groq(new Groq.Config() {
                     public String key() { return Hub.groqKey(app); } public String model() { return Hub.groqModel(app); } public String system() { return ""; } });
                 SecureServer s = new SecureServer(Hub.psk(app), Hub.PORT, groq, new SecureServer.Log() { public void log(String l) { Hub.log(l); } });
+                s.dialer = new PhoneDialer(app);
                 s.start(); Hub.server = s;
                 PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
                 wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "fit3hub:proxy"); wake.acquire();

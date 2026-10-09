@@ -152,6 +152,10 @@ static int menu_open(void *root);
 #include "minigames.inc.c"
 #define HAVE_MINIGAMES 1
 #endif
+#ifdef WITH_TOOLS                                      /* utilities: calculator, stopwatch/timer, flashlight, notes, counter, dice */
+#include "tools.inc.c"
+#define HAVE_TOOLS 1
+#endif
 #ifdef WITH_GB                                         /* Game Boy / Game Boy Color emulator (cartridge from /user/gb.gb) */
 #include "gbcore.inc.c"
 #include "gb.inc.c"

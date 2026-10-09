@@ -74,7 +74,7 @@ def run(name, loss=0.0, shot=None):
     dut.close(); return not fails
 
 
-if __name__ == '__main__' and 'ai' not in sys.argv[1:]:
+if __name__ == '__main__' and 'ai' not in sys.argv[1:] and 'dial' not in sys.argv[1:]:
     keyhex = os.path.join(HERE, 'test.key.hex')
     if not os.path.exists(keyhex): open(keyhex, 'w').write(open(os.path.join(HERE, 'test.key'), 'rb').read().hex() + '\n')
     web = http.server.ThreadingHTTPServer(('127.0.0.1', 18080), H); threading.Thread(target=web.serve_forever, daemon=True).start()
@@ -145,3 +145,46 @@ def main_ai():
 
 if __name__ == '__main__' and 'ai' in sys.argv[1:]:
     sys.exit(0 if main_ai() else 1)
+
+def run_dial(number='5511987654321', fail_number=None):
+    fails = []; dut = AppDut('d'); ph = ps.Phone(dut, 8788, loss=0.0, seed=7)
+    def step(ms=50):
+        dut.now += ms; ph.handle_out(dut.call('K', struct.pack('>I', dut.now))); ph.pump_sessions(dut.now); time.sleep(0.0005)
+    def until(cond, limit_ms, what):
+        t = 0
+        while t < limit_ms:
+            if cond(): return True
+            step(); t += 50
+        fails.append('timeout: ' + what); return False
+    def tap(x, y): ph.handle_out(dut.call('T', struct.pack('>HH', x, y)))
+    def key(ch):
+        i = '123456789*0#'.index(ch); r, c = divmod(i, 3); tap(8 + c * 82 + 39, 96 + r * 62 + 29)
+    step(); step()
+    until(lambda: status(dut)['phase'] == 4, 60000, 'dialer READY'); until(lambda: status(dut)['mode'] == 3, 5000, 'keypad shown')
+    if status(dut)['mode'] != 3: fails.append('not on the keypad (mode %d)' % status(dut)['mode'])
+    for ch in number: key(ch); step(20)
+    tap(47, 370); step(20)                                        # backspace
+    key(number[-1]); step(20)                                     # ... and type it again
+    tap(170, 370)                                                 # CALL
+    until(lambda: status(dut)['mode'] == 0 and status(dut)['title'] == 'Discador', 60000, 'call answered')
+    s = status(dut); print('   result page: title=%r text=%r' % (s['title'], s['text'][:40].encode('ascii','replace').decode()))
+    if not (s['text'].startswith('Chamando ' + number) or s['text'].startswith('Numero ' + number)): fails.append('unexpected result %r' % s['text'])
+    tap(100, 200); step(50)
+    if status(dut)['mode'] != 3: fails.append('tap did not return to the keypad (mode %d)' % status(dut)['mode'])
+    print('%-30s frames=%4d virtual=%6d ms -> %s' % ('Dialer via proxy', ph.sent, dut.now, 'OK' if not fails else 'FAIL ' + '; '.join(fails)))
+    for t in ph.sess.values():
+        try: t.sock.close()
+        except Exception: pass
+    dut.close(); return not fails
+
+
+def main_dial():
+    keyhex = os.path.join(HERE, 'test.key.hex')
+    node = start_proxy(keyhex); time.sleep(1.5)
+    try: ok = run_dial()
+    finally: node.kill()
+    print('DIAL ALL OK' if ok else 'DIAL FAILED'); return ok
+
+
+if __name__ == '__main__' and 'dial' in sys.argv[1:]:
+    sys.exit(0 if main_dial() else 1)

@@ -21,6 +21,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class SecureServer {
     public interface Log { void log(String line); }
+    /** Places a phone call (implemented by the Android app); throws with a message for the watch if it cannot. */
+    public interface Dialer { void dial(String number) throws Exception; }
+    public volatile Dialer dialer;
 
     private final byte[] psk; private final int port; private final Groq groq; private final Log log;
     private volatile boolean running; private ServerSocket ss; private final ExecutorService pool = Executors.newCachedThreadPool();
@@ -76,9 +79,17 @@ public final class SecureServer {
                 case 'B': { int n = Math.min(Integer.parseInt(arg), 65000); byte[] b = new byte[n]; for (int i = 0; i < n; i++) b[i] = (byte) (i % 251); return b; }
                 case 'G': log.log("pagina: " + arg); return WatchPage.page(arg, 1);
                 case 'A': log.log("IA: " + arg); return groq.ask(arg, session);
+                case 'D': return dial(arg);
                 default: return "?unknown request".getBytes(StandardCharsets.UTF_8);
             }
         } catch (Exception e) { return ("!" + e.getMessage()).getBytes(StandardCharsets.UTF_8); }
+    }
+
+    private byte[] dial(String num) {
+        if (!num.matches("[0-9*#+]{1,20}")) return "!numero invalido".getBytes(StandardCharsets.UTF_8);
+        Dialer d = dialer; if (d == null) return "!este proxy nao liga (use o app Fit3 Hub no celular)".getBytes(StandardCharsets.UTF_8);
+        try { log.log("ligando para " + num); d.dial(num); } catch (Exception e) { return ("!" + e.getMessage()).getBytes(StandardCharsets.UTF_8); }
+        return ("W1\nS1\nU\nTDiscador\nChamando " + num + "...\n\n(toque para voltar ao teclado)\n\n\u0001\n").getBytes(StandardCharsets.UTF_8);
     }
 
     private static long reply(OutputStream out, byte[] key, long sctr, byte[] data) throws IOException {

@@ -18,6 +18,7 @@ name = sys.argv[1] if len(sys.argv) > 1 else 'apps'
 DEFS = ['-DNO_DOOM'] if '--blocks' in sys.argv else ['-DNO_GAMES', '-DMINI_GAMES']                      # third-party games are not part of this repository
 KBD_ONLY = '--kbd-only' in sys.argv                                  # only the reply keyboard: no launcher, games, readers or relabelled settings entry
 if KBD_ONLY: DEFS += ['-DNO_GAMES', '-DNO_WEB', '-DKBD_ONLY']; HOOKS = [h for h in HOOKS if h[1] != 'cave_menu']
+if '--tools' in sys.argv: DEFS.append('-DWITH_TOOLS')                 # utilities tile (calculator, stopwatch, flashlight, notes, counter, dice)
 if '--gb' in sys.argv: DEFS.append('-DWITH_GB')                       # Game Boy emulator tile
 if '--nodoom' in sys.argv: DEFS.append('-DNO_DOOM')                  # leave the Doom-style game out
 if '--noweb' in sys.argv: DEFS.append('-DNO_WEB')                    # no Web/Text readers (and no Internet/AI): fully offline build

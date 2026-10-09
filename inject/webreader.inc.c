@@ -29,7 +29,7 @@
 #define WR_BOT 372
 #define WR_ROWS ((WR_BOT - WR_TOP) / WR_LH)
 #define WR_MAXLINKS 61
-enum { WM_PAGE, WM_LINKS, WM_WAIT };
+enum { WM_PAGE, WM_LINKS, WM_WAIT, WM_DIAL };
 
 typedef struct {
     u32 dsc[4]; u32 *cvblk; u16 *px; void *root, *img, *timer; int from_menu;
@@ -37,6 +37,7 @@ typedef struct {
     u16 *lines; int nlines, top, ltop;
     int pressed, x, y, sx, sy, lasty, moved, acc, tap, dirty, mode, kbd_open;
     u32 seq_wait, wait_t0, last_poll, last_seq; char title[48], url[128]; char hist[6][128]; int nh;
+    char dnum[24]; int dlen;                                                       /* dialer (netmode 3) */
     void *ng; int netmode;                                                         /* Internet mode (NET_APP): NG state from net.inc.c */
 } WR;
 
@@ -132,14 +133,42 @@ static void wr_color_line(u16 *g, int x, int y, const u8 *s, const u8 *e, uint16
         cx += 8; p += adv;
     }
 }
+#ifdef NET_APP
+static void wr_close(WR *w);
+/* ---------------- dialer (netmode 3): a keypad; CALL sends 'D<number>' through the secure proxy and the phone (Fit3 Hub app) places the call ---------------- */
+static const char dl_keys[12] = { '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#' };
+static int dl_in(WR *w, int x, int y, int bw, int bh) { return w->x >= x && w->x < x + bw && w->y >= y && w->y < y + bh; }
+static void wr_dial_draw(WR *w) {
+    u16 *g = w->px; rect(g, 0, 0, KBD_W, KBD_H, C(16, 20, 30));
+    ptext(g, 8, 9, TR("Discador", "Dialer"), 1, C(255, 210, 90)); rect(g, 216, 0, 40, 28, C(170, 30, 30)); put(g, 228, 8, 'X', 2, C(255, 255, 255));
+    rrect(g, 8, 34, 240, 52, 10, C(8, 10, 16));
+    { int n = w->dlen, st = n > 14 ? n - 14 : 0; ptext(g, 244 - (n - st) * 16, 48, w->dnum + st, 2, C(255, 255, 255)); if (!n) ctext(g, 128, 52, TR("digite o numero", "enter a number"), 1, C(100, 110, 140)); }
+    for (int r = 0; r < 4; r++) for (int c = 0; c < 3; c++) {
+        int x = 8 + c * 82, y = 96 + r * 62, on = w->pressed && dl_in(w, x, y, 78, 58); char s[2] = { dl_keys[r * 3 + c], 0 };
+        rrect(g, x, y, 78, 58, 12, on ? C(250, 200, 80) : C(44, 50, 70)); ctext(g, x + 39, y + 11, s, 3, on ? C(40, 24, 0) : C(255, 255, 255));
+    }
+    rrect(g, 8, 346, 78, 48, 12, C(210, 140, 40)); ctext(g, 47, 358, "<", 3, C(40, 24, 0));
+    rrect(g, 92, 346, 156, 48, 12, w->dlen ? C(70, 190, 120) : C(60, 90, 80)); ctext(g, 170, 358, TR("LIGAR", "CALL"), 2, C(10, 50, 20));
+}
+static void wr_dial_tap(WR *w, int x, int y) {
+    (void)x; (void)y;
+    if (w->x >= 216 && w->y < 28) { wr_close(w); return; }
+    for (int r = 0; r < 4; r++) for (int c = 0; c < 3; c++) if (dl_in(w, 8 + c * 82, 96 + r * 62, 78, 58)) { if (w->dlen < 20) { w->dnum[w->dlen++] = dl_keys[r * 3 + c]; w->dnum[w->dlen] = 0; } w->dirty = 1; return; }
+    if (dl_in(w, 8, 346, 78, 48)) { if (w->dlen) w->dnum[--w->dlen] = 0; w->dirty = 1; }
+    else if (dl_in(w, 92, 346, 156, 48) && w->dlen) { MOTOR_ONCE(1, 0); ng_request(w, w->dnum); }
+}
+#endif
 static void wr_draw(WR *w) {
+#ifdef NET_APP
+    if (w->mode == WM_DIAL) { wr_dial_draw(w); return; }
+#endif
     u16 *g = w->px; rect(g, 0, 0, KBD_W, KBD_H, C(12, 14, 22));
     /* top bar */
     rect(g, 0, 0, KBD_W, 28, C(22, 26, 42));
     rect(g, 2, 2, 28, 24, C(40, 60, 110)); put(g, 8, 4, '<', 2, C(255, 255, 255));
     rect(g, 32, 2, 28, 24, w->mode == WM_LINKS ? C(200, 140, 30) : C(40, 60, 110)); put(g, 38, 4, 'L', 2, C(255, 255, 255));
     rect(g, 62, 2, 34, 24, C(30, 120, 60)); ptext(g, 64, 4, TR("Ir", "Go"), 2, C(255, 255, 255));
-    draw_wrapped(g, w->mode == WM_WAIT ? (w->netmode ? (w->netmode == 2 ? "IA" : "Internet") : TR("Aguardando a ponte", "Waiting for the bridge")) : (w->title[0] ? w->title : "Web"), 100, 8, 1, 14, 1, 0, C(255, 210, 90), 0);
+    draw_wrapped(g, w->mode == WM_WAIT ? (w->netmode ? (w->netmode == 2 ? "IA" : w->netmode == 3 ? TR("Discador", "Dialer") : "Internet") : TR("Aguardando a ponte", "Waiting for the bridge")) : (w->title[0] ? w->title : "Web"), 100, 8, 1, 14, 1, 0, C(255, 210, 90), 0);
     rect(g, 216, 0, 40, 28, C(170, 30, 30)); put(g, 228, 8, 'X', 2, C(255, 255, 255));
 #ifdef NET_APP
     if (w->mode == WM_WAIT && w->netmode) { ng_draw_status(w, g); } else
@@ -187,6 +216,10 @@ static void wr_close(WR *w) {
 }
 static void wr_nav_link(WR *w, int n) { if (n > 0 && n < WR_MAXLINKS && w->link_off[n]) wr_go(w, (const char *)w->buf + w->link_off[n], 1); }
 static void wr_tap(WR *w, int x, int y) {
+#ifdef NET_APP
+    if (w->mode == WM_DIAL) { wr_dial_tap(w, x, y); return; }
+    if (w->netmode == 3 && w->mode == WM_PAGE) { if (x >= 216 && y < 28) { wr_close(w); return; } w->mode = WM_DIAL; w->dirty = 1; return; }   /* the call result: tap goes back to the keypad */
+#endif
     if (w->mode == WM_WAIT) {
         if (x >= 216 && y < 28) { wr_close(w); return; }
 #ifdef NET_APP
@@ -211,7 +244,7 @@ static void wr_event(void *e) {
     if (code == 1) { if (touch_read(&x, &y)) { w->pressed = 1; w->x = x; w->y = y; w->sx = x; w->sy = y; w->lasty = y; w->moved = 0; w->acc = 0; } return; }
     if (code == 2) {
         if (!touch_read(&x, &y)) return; w->x = x; w->y = y;
-        if (w->mode == WM_WAIT) return;
+        if (w->mode == WM_WAIT || w->mode == WM_DIAL) return;
         if (!w->moved && (y - w->sy > 10 || w->sy - y > 10)) w->moved = 1;
         if (w->moved) {
             w->acc += y - w->lasty; w->lasty = y; int step = w->mode == WM_LINKS ? 24 : WR_LH; int mv = w->acc / step;
@@ -274,6 +307,7 @@ static int wr_open2(void *root, int from_menu, int netmode) {
 static int wr_open(void *root, int from_menu) { return wr_open2(root, from_menu, 0); }
 #ifdef NET_APP
 static int net_open(void *root, int from_menu) { return wr_open2(root, from_menu, 1); }
+static int dial_open(void *root, int from_menu) { return wr_open2(root, from_menu, 3); }                  /* phone dialer through the proxy */
 static int ai_open(void *root, int from_menu) { return wr_open2(root, from_menu, 2); }      /* Groq AI chat through the proxy */
 #endif
 

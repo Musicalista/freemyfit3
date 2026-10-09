@@ -16,6 +16,8 @@ They inject small apps into the watch's main firmware image and repackage it for
 | **"Extra apps" launcher** (Settings > the relabelled "Tips and tutorials" entry): pastel 2x3 tile grid, two pages, swipe/arrows. UI text follows the watch language (pt-BR / English). | `inject/menu.inc.c` |
 | **Game Boy / Game Boy Color emulator** (no sound): CPU, MBC1/2/3/5, DMG + CGB video, touch pad. Loads *your* ROM from `/user/gb.gb` (send it with the "Enviar ROM" card of `webbridge/bridge.html`); battery saves in `/user/gb.sav`. Build with `--gb`. No ROMs are included. | `inject/gbcore.inc.c`, `inject/gb.inc.c` |
 | **Block world game** (original code): title menu, generated worlds (hills, flat, mountains, desert), 14 blocks with generated textures, creative flight, hotbar + inventory, pause menu, saves to `/user/mc.sav`. Build with `--blocks`. | `src/vox.c`, `inject/mc_game.inc.c` |
+| **Tools** (`--tools`): calculator, stopwatch + timer, flashlight, notes (T9 keyboard), counter, dice and coin. | `inject/tools.inc.c` |
+| **Phone dialer** (Internet builds): a keypad on the watch; the Fit3 Hub app places the call on the phone through the encrypted proxy (needs the Phone permission). | `inject/webreader.inc.c`, `android/` |
 | **Mini games:** Snake, Flappy, Tetris, 2048, with touch gestures (swipe, drag, tap zones). Build flags: `--noweb` (fully offline), `--nodoom`. | `inject/minigames.inc.c` |
 | **Internet over your phone's Bluetooth tethering** (BNEP / PAN): a small TCP/IP stack (ARP, IPv4, ICMP, UDP, DHCP, DNS, TCP) and an encrypted channel (ChaCha20-Poly1305, pre-shared key) to a private proxy that fetches pages (HTTPS included) and answers in a tiny text format. | `net/`, `inject/net.inc.c` |
 | **Text web reader** (numbered links, scrolling, history) and **Groq AI chat** (the API key never leaves the phone/PC). | `inject/webreader.inc.c`, `webbridge/groq.js`, `android/` |
@@ -48,7 +50,6 @@ python inject/build2.py net --net         # ... plus Internet + AI (generates we
 ```
 The package lands in `dist/` (the flasher's validator runs at the end). The first build also generates the font (`kbd/make_font.py`, uses a font from your Windows).
 `--marker-only` restores the old behaviour (only the `...` quick reply opens the keyboard).
-`--kbd-only` builds only the reply keyboard (no launcher entry, games or readers; 6 KB).
 
 ## The proxy
 The watch talks to a proxy through the phone's Bluetooth tethering. Pick one:

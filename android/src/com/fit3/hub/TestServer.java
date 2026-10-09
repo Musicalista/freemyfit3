@@ -11,6 +11,7 @@ public final class TestServer {
         final String gk = a.length > 2 ? a[2] : "";
         Groq groq = new Groq(new Groq.Config() { public String key() { return gk; } public String model() { return ""; } public String system() { return ""; } });
         SecureServer s = new SecureServer(key, Integer.parseInt(a[0]), groq, new SecureServer.Log() { public void log(String l) { System.out.println(l); System.out.flush(); } });
+        s.dialer = new SecureServer.Dialer() { public void dial(String n) throws Exception { if (n.startsWith("000")) throw new Exception("sem sinal"); System.out.println("DIAL " + n); System.out.flush(); } };
         s.start(); Thread.sleep(Long.MAX_VALUE);
     }
 }

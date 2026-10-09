@@ -150,10 +150,10 @@ static void ng_tick(WR *w) {
                 "Ask anything.\n\nTap Go, type your question on the T9 keyboard and confirm with OK. The answer shows up here; drag to scroll. Follow-up questions remember the conversation.\n\nThe Groq key stays on the PC only."));
             else wr_set_text(w, TR("Internet", "Internet"), TR("Conectado pela ancoragem Bluetooth do celular.\n\nToque em Ir, digite um endereco (ex.: example.com) ou uma busca e confirme com OK.\n\nToque em um [n] para abrir um link. Arraste para rolar. L lista os links; < volta.",
                 "Connected through your phone's Bluetooth tethering.\n\nTap Go, type an address (e.g. example.com) or a search and confirm with OK.\n\nTap a [n] to open a link. Drag to scroll. L lists the links; < goes back."));
-            w->mode = WM_PAGE; MOTOR_ONCE(1, 0);
+            w->mode = w->netmode == 3 ? WM_DIAL : WM_PAGE; MOTOR_ONCE(1, 0);
         }
         if (g->have_pending) {
-            u8 m[200]; int l = 0; m[l++] = (u8)(w->netmode == 2 ? 'A' : 'G');           /* 'A' = ask the Groq AI, 'G' = fetch a page */ for (int i = 0; g->pending[i] && l < 199; i++) m[l++] = (u8)g->pending[i];
+            u8 m[200]; int l = 0; m[l++] = (u8)(w->netmode == 2 ? 'A' : w->netmode == 3 ? 'D' : 'G');           /* 'A' = ask the Groq AI, 'G' = fetch a page */ for (int i = 0; g->pending[i] && l < 199; i++) m[l++] = (u8)g->pending[i];
             if (sc_send(net, m, l) == 0) { g->have_pending = 0; g->resp_on = 1; g->resp_len = 0; g->req_t0 = now; }
         }
         if (g->resp_on) {

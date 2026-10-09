@@ -49,6 +49,7 @@ function serve(psk, getPage, getAi) {
         if (t === 'E') reply(Buffer.from(arg));
         else if (t === 'B') { const n = Math.min(parseInt(arg, 10) || 0, 65000); const b = Buffer.alloc(n); for (let i = 0; i < n; i++) b[i] = i % 251; reply(b); }
         else if (t === 'G') reply(await getPage(arg.trim()));
+        else if (t === 'D') reply(/^[0-9*#+]{1,20}$/.test(arg.trim()) ? Buffer.from('W1\nS1\nU\nTDiscador\nNumero ' + arg.trim() + ' recebido.\n\nEste proxy do PC nao liga: use o app Fit3 Hub no celular.\n\x01\n') : Buffer.from('!numero invalido'));
         else if (t === 'A') reply(getAi ? await getAi(arg.trim(), session) : Buffer.from('!IA indisponivel'));
         else reply(Buffer.from('?unknown request'));
       } catch (e) { reply(Buffer.from('!' + (e && e.message || e))); }
