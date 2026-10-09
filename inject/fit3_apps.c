@@ -131,6 +131,7 @@ static int kbd_open_cb(void *root, const char *title, const char *hint, void *do
     return 1;
 }
 
+#include "common.inc.c"
 static int menu_open(void *root);
 #ifndef NO_GAMES
 #ifdef GAME_CS
@@ -143,7 +144,6 @@ static int menu_open(void *root);
 #endif
 #endif /* NO_GAMES */
 
-#include "common.inc.c"
 #if !defined(NO_GAMES) && !defined(NO_DOOM)
 #include "doom.inc.c"
 #define HAVE_DOOM 1

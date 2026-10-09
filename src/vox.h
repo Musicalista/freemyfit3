@@ -1,4 +1,5 @@
-/* Voxel "block world" engine (original code): terrain generation, 14 block types, creative flight, picking, mesh + procedural textures.
+/* Voxel "block world" engine (original code): terrain generation, 14 block types, creative flight, survival (health, hunger, drops, crafting,
+ * day/night), mobs (zombies, pigs), picking, mesh + procedural textures.
  * Portable, no libc beyond what rdmath.h provides; no globals (the cave is read-only flash): everything lives in a caller-allocated Vox. */
 #ifndef VOX_H
 #define VOX_H
@@ -8,34 +9,48 @@
 #define VX_W 64            /* x */
 #define VX_D 64            /* z */
 #define VX_H 40            /* y (up) */
-#define VX_TILES 17
+#define VX_TILES 23
 #define VX_TEXW (VX_TILES * 16)
+#define VX_MOBS 10
+#define VX_DAY_TICKS 18000 /* a full day at 60 ticks/s = 5 minutes */
 
 enum { VB_AIR, VB_GRASS, VB_DIRT, VB_STONE, VB_COBBLE, VB_SAND, VB_LOG, VB_PLANKS, VB_LEAVES, VB_BRICK, VB_GLASS, VB_WOOL_R, VB_WOOL_B, VB_SNOW, VB_COAL, VB_BEDROCK, VB_N };
+#define VB_PORK VB_N       /* a pseudo item in the survival inventory */
 #define VB_PLACEABLE 14    /* ids 1..14 can be put in the hotbar */
 enum { VK_FWD, VK_BACK, VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_N };
 enum { VW_HILLS, VW_FLAT, VW_MOUNTAINS, VW_DESERT, VW_TYPES };
+enum { VM_NONE, VM_ZOMBIE, VM_PIG };
 
 typedef struct { int x, y, z, f; } VxHit;
+typedef struct { float x, y, z, xd, yd, zd, fx, fz; int type, hp, cd, t, on_ground; } VxMob;   /* x,y,z = feet */
 typedef struct {
     uint8_t blk[VX_W * VX_H * VX_D];
     uint8_t top[VX_W * VX_D];                 /* highest non-air y of each column (for the shade of covered cells) */
     float x, y, z, xo, yo, zo, xd, yd, zd, yaw, pitch;   /* x,y,z = eye */
     int on_ground, flying, has_hit, radius, sel, ticks, modified, wtype;
     uint8_t held[VK_N], hot[9];
-    float turn_yaw, turn_pitch, passed, alpha;
+    float turn_yaw, turn_pitch, passed, alpha, hit_t;
     int64_t last_ms;
-    uint32_t seed;
+    uint32_t seed, rng, time;                 /* time: survival clock in ticks */
     VxHit hit;
+    /* survival */
+    int survival, health, food, hurt, dead, hungert, regent, spawnt;   /* health/food 0..20 (half hearts / half drumsticks) */
+    uint8_t inv[VB_N + 1];
+    VxMob mobs[VX_MOBS];
 } Vox;
 
-void vx_gen(Vox *g, uint32_t seed, int type);       /* new world + player on the surface near the middle */
+void vx_gen(Vox *g, uint32_t seed, int type);       /* new world + player on the surface near the middle (creative) */
+void vx_set_survival(Vox *g, int on);               /* start survival (full health, empty inventory, no flying) or back to creative */
+void vx_respawn(Vox *g);
 void vx_key(Vox *g, int key, int down);
 void vx_look(Vox *g, float dx, float dy);            /* camera turn in "key units": 0.15 degrees each */
 void vx_tick(Vox *g);
 void vx_advance(Vox *g, int64_t now_ms);             /* sets g->ticks (60 per second) and g->alpha */
-int  vx_break(Vox *g);                               /* 1 if a block was removed */
+int  vx_break(Vox *g);                               /* 1 if a block was removed (survival: its drop goes to the inventory) */
 int  vx_place(Vox *g);                               /* puts the selected hotbar block against the targeted face; 1 if done */
+int  vx_attack(Vox *g);                              /* hits the mob under the crosshair if it is closer than the targeted block; 1 if one was hit */
+int  vx_eat(Vox *g);
+int  vx_craft(Vox *g, int recipe);                   /* 0 log -> 4 planks, 1 2 sand -> 2 glass, 2 4 cobble -> 2 brick */
 void vx_recalc_tops(Vox *g);
 #define VX_IDX(x, y, z) (((y) * VX_D + (z)) * VX_W + (x))
 #define vx_get(g, x, y, z) ((x) >= 0 && (y) >= 0 && (z) >= 0 && (x) < VX_W && (y) < VX_H && (z) < VX_D ? (g)->blk[VX_IDX(x, y, z)] : 0)

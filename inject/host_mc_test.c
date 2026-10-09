@@ -53,8 +53,8 @@ int main(int argc, char **argv) {
     game_open((void *)1, 0); GSt *st = *(GSt **)(fake_timer + 0xC); if (!st) { puts("game_open failed"); return 1; }
     printf("screen=%d has_save=%d\n", st->screen, st->has_save);
     dump(st->cv, "mc_menu.ppm");
-    tap(st, 100, 230); printf("type -> %d\n", st->wtype); tap(st, 100, 290); frames(st, 2); dump(st->cv, "mc_menu2.ppm");
-    tap(st, 100, 190); printf("new world: screen=%d seed=%u type=%d\n", st->screen, st->seed, st->wtype);
+    tap(st, 100, 204); printf("type -> %d\n", st->wtype); tap(st, 100, 290); frames(st, 2); dump(st->cv, "mc_menu2.ppm");
+    tap(st, 100, 165); printf("new world: screen=%d seed=%u type=%d\n", st->screen, st->seed, st->wtype);
     frames(st, 30); dump(st->cv, "mc_play.ppm");
     { Vox *g = st->g; g->pitch = 35; g->yaw = 20; st->pressed = 0; frames(st, 5);
       printf("hit=%d at %d,%d,%d\n", g->has_hit, g->hit.x, g->hit.y, g->hit.z); int bx = g->hit.x, by = g->hit.y, bz = g->hit.z, b0 = vx_get(g, bx, by, bz);
@@ -74,7 +74,24 @@ int main(int argc, char **argv) {
       tap(st, 100, 180); printf("save: msg=%d\n", st->msg);
       tap(st, 100, 230); printf("main menu: screen=%d has_save=%d\n", st->screen, st->has_save); frames(st, 2);
       float px = g->x; int blk = vx_get(g, bx, by, bz);
-      tap(st, 100, 140); printf("continue: screen=%d x %.2f vs %.2f block %d vs %d\n", st->screen, st->g->x, px, vx_get(st->g, bx, by, bz), blk);
+      tap(st, 100, 120); printf("continue: screen=%d x %.2f vs %.2f block %d vs %d\n", st->screen, st->g->x, px, vx_get(st->g, bx, by, bz), blk);
     }
+    /* ---- survival: menu toggle, hearts, inventory counts, crafting, death screen, save/load of survival state ---- */
+    { tap(st, 236, 10); frames(st, 1); tap(st, 100, 230); frames(st, 1); tap(st, 100, 247); printf("mode toggled: survival=%d\n", st->survival);
+      tap(st, 100, 165); Vox *g = st->g; printf("survival world: screen=%d survival=%d health=%d food=%d flying=%d pigs=", st->screen, g->survival, g->health, g->food, g->flying);
+      int pigs = 0; for (int i = 0; i < VX_MOBS; i++) if (g->mobs[i].type == VM_PIG) pigs++; printf("%d\n", pigs);
+      frames(st, 5); g->pitch = 60; g->yaw = 0; frames(st, 3); int bx = g->hit.x, by = g->hit.y, bz = g->hit.z, b0 = vx_get(g, bx, by, bz);
+      tap(st, 128, 130); printf("tap break id %d -> inv: grass-drop dirt=%d\n", b0, g->inv[VB_DIRT]);
+      g->inv[VB_LOG] = 5; g->inv[VB_PORK] = 3; g->food = 8; tap(st, 232, 285); printf("inventory screen=%d\n", st->screen); frames(st, 2);
+      tap(st, 20, 270); printf("craft planks via tap: planks=%d logs=%d\n", g->inv[VB_PLANKS], g->inv[VB_LOG]); frames(st, 2); dump(st->cv, "mc_surv_inv.ppm");
+      tap(st, 100, 320); tap(st, 236, 10); frames(st, 1); tap(st, 100, 80); printf("resumed: screen=%d\n", st->screen);
+      tap(st, 25, 285); printf("eat: food=%d pork=%d\n", g->food, g->inv[VB_PORK]);
+      g->time = (uint32_t)(VX_DAY_TICKS * 0.7); g->hurt = 0; g->health = 3; frames(st, 3); dump(st->cv, "mc_surv_play.ppm");
+      { VxMob *z = &g->mobs[0]; z->type = VM_ZOMBIE; z->x = g->x; z->z = g->z + 0.5f; z->y = g->y - 1.62f; z->hp = 20; z->cd = 0; z->fx = 0; z->fz = -1; z->xd = z->yd = z->zd = 0; }
+      for (int i = 0; i < 400 && st->screen == MS_PLAY; i++) frames(st, 1); printf("zombie killed the player: screen=%d dead=%d\n", st->screen, g->dead); frames(st, 2); dump(st->cv, "mc_dead.ppm");
+      tap(st, 100, 160); printf("respawn: screen=%d health=%d dead=%d\n", st->screen, g->health, g->dead);
+      /* save survival, reload through the menu */
+      g->inv[VB_STONE] = 7; g->modified = 1; mc_save(st); tap(st, 236, 10); frames(st, 1); tap(st, 100, 230); frames(st, 1); printf("menu again: screen=%d has_save=%d\n", st->screen, st->has_save);
+      tap(st, 100, 120); printf("loaded: screen=%d survival=%d inv stone=%d planks=%d health=%d\n", st->screen, st->g->survival, st->g->inv[VB_STONE], st->g->inv[VB_PLANKS], st->g->health); }
     return 0;
 }
