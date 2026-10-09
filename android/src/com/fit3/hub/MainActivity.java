@@ -45,7 +45,7 @@ import java.util.Set;
 /** One scrolling screen made of cards: a status header, the proxy, the watch, the AI settings and a log. Built in code (no XML resources). */
 public final class MainActivity extends Activity {
     private TextView statusText, statusSub, addresses, watchState, logView, brightLabel, groqState;
-    private TextView toggle;
+    private TextView toggle, romState;
     private View statusDot;
     private EditText groqKey, groqModel, filePath;
     private Spinner devices;
@@ -138,6 +138,11 @@ public final class MainActivity extends Activity {
         watch.addView(label(Hub.t("Idioma do relógio", "Watch language"), 13, cText, true), lp(-1, -2, 0, 12, 0, 4));
         langRow = new LinearLayout(this); langRow.setOrientation(LinearLayout.HORIZONTAL); watch.addView(langRow); buildLangChips();
 
+        // ---- Game Boy ROM upload (the same transfer the PC bridge page does, straight from the phone)
+        LinearLayout gb = card(col, "Game Boy", Hub.t("Envia um jogo (.gb ou .gbc) para o relógio, em /user/gb.gb. Use um jogo seu.", "Sends a game (.gb or .gbc) to the watch as /user/gb.gb. Bring your own game."));
+        romState = label("", 13, cMuted, false); gb.addView(romState);
+        gb.addView(button(Hub.t("Escolher jogo e enviar", "Pick a game and send"), true, tap(new Runnable() { public void run() { pickRom(); } })), lp(-1, -2, 0, 8, 0, 0));
+
         // ---- AI (collapsible)
         LinearLayout ai = card(col, Hub.t("IA (Groq)", "AI (Groq)"), null);
         groqState = label("", 13, cMuted, false); ai.addView(groqState);
@@ -181,6 +186,32 @@ public final class MainActivity extends Activity {
             c.setBackground(shape(i == selLang ? cAccent : cChip, 12)); c.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { selLang = idx; buildLangChips(); at("LANGUAGE=" + LANG_IDS[idx]); } });
             langRow.addView(c, lp(0, -2, i == 0 ? 0 : 6, 0, 0, 0)); ((LinearLayout.LayoutParams) c.getLayoutParams()).weight = 1f;
         }
+    }
+
+    private static final int REQ_ROM = 21;
+    private void pickRom() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT); i.addCategory(Intent.CATEGORY_OPENABLE); i.setType("*/*");
+        try { startActivityForResult(i, REQ_ROM); } catch (Exception e) { Hub.log(Hub.t("Não consegui abrir o seletor de arquivos", "Could not open the file picker")); }
+    }
+    @Override protected void onActivityResult(int req, int res, Intent data) {
+        if (req != REQ_ROM || res != RESULT_OK || data == null || data.getData() == null) return;
+        final android.net.Uri uri = data.getData();
+        new Thread(new Runnable() { public void run() { sendRom(uri); } }).start();
+    }
+    private void romMsg(final String m) { ui.post(new Runnable() { public void run() { romState.setText(m); } }); }
+    private void sendRom(android.net.Uri uri) {
+        try {
+            java.io.InputStream in = getContentResolver().openInputStream(uri); java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream(); byte[] buf = new byte[16384]; int n;
+            while ((n = in.read(buf)) > 0) { bo.write(buf, 0, n); if (bo.size() > 4 * 1024 * 1024) throw new java.io.IOException(Hub.t("arquivo maior que 4 MB", "file larger than 4 MB")); } in.close();
+            byte[] rom = bo.toByteArray(); if (rom.length < 0x150) throw new java.io.IOException(Hub.t("não parece uma ROM de Game Boy", "does not look like a Game Boy ROM"));
+            if (!Hub.watch.isOpen()) {
+                final int pos = devices.getSelectedItemPosition(); if (pos < 0 || pos >= bonded.size()) throw new java.io.IOException(Hub.t("escolha o relógio em Relógio e toque em Conectar", "pick the watch under Watch and tap Connect"));
+                romMsg(Hub.t("Conectando ao relógio...", "Connecting to the watch...")); Hub.watch.open(bonded.get(pos)); Hub.saveWatch(this, bonded.get(pos).getAddress());
+            }
+            Hub.log(Hub.t("Enviando ROM: ", "Sending ROM: ") + rom.length + " bytes");
+            Hub.watch.writeFile("/user/gb.gb", rom, new WatchLink.Progress() { public void percent(int p) { romMsg(Hub.t("Enviando... ", "Sending... ") + p + "%"); } });
+            romMsg(Hub.t("Pronto. No relógio: Apps extras > GameBoy.", "Done. On the watch: Extra apps > GameBoy.")); Hub.log(Hub.t("ROM enviada", "ROM sent"));
+        } catch (Exception e) { romMsg(Hub.t("Falha: ", "Failed: ") + e.getMessage()); Hub.log("ROM: " + e.getMessage()); }
     }
 
     private void askPermissions() {

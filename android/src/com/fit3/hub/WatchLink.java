@@ -81,7 +81,9 @@ public final class WatchLink implements Closeable {
         return data;
     }
 
-    public synchronized void writeFile(String path, byte[] data) throws IOException {
+    public interface Progress { void percent(int p); }
+    public synchronized void writeFile(String path, byte[] data) throws IOException { writeFile(path, data, null); }
+    public synchronized void writeFile(String path, byte[] data, Progress pr) throws IOException {
         if (!isOpen()) throw new IOException("relogio nao conectado");
         drain(); out.write("300".getBytes(StandardCharsets.US_ASCII)); out.flush(); expect("300");
         out.write(("33bin," + path + "," + data.length).getBytes(StandardCharsets.UTF_8)); out.flush(); expect("330");
@@ -90,6 +92,7 @@ public final class WatchLink implements Closeable {
             CRC32 crc = new CRC32(); crc.update(data, off, n); long c = crc.getValue();
             frame[n] = (byte) c; frame[n + 1] = (byte) (c >>> 8); frame[n + 2] = (byte) (c >>> 16); frame[n + 3] = (byte) (c >>> 24);
             out.write(frame); out.flush(); expect("310");
+            if (pr != null) pr.percent((off + n) * 100 / data.length);
         }
         out.write("32".getBytes(StandardCharsets.US_ASCII)); out.flush(); expect("320");
         try { Thread.sleep(250); } catch (InterruptedException ignored) {}
