@@ -11,7 +11,7 @@ typedef struct { u8 board[20][10]; int shape, rot, nshape, x, y, score, lines, l
 typedef struct { u8 b[4][4]; int score, best, over, won, added; } G2048;
 typedef struct {
     u32 dsc[4]; u32 *cvblk; u16 *px; void *root, *img, *timer; int from_menu, kind;
-    int pressed, x, y, tap, sx, sy, swipe; u32 rng, frame;
+    int pressed, x, y, tap, sx, sy, swipe, moved, gev, ax, ay; u32 rng, frame;      /* gev: swipe gesture 1 up 2 right 3 down 4 left; ax/ay: drag anchor; swipe: one-shot flag */
     union { Snake s; Flappy f; Tetris t; G2048 g2; } g;
 } MG;
 
@@ -21,12 +21,12 @@ static u32 mg_rand(MG *m) { m->rng = m->rng * 1664525u + 1013904223u; return m->
 static void mg_hud(MG *m, const char *name, int score, int best) {
     u16 *g = m->px; rect(g, 0, 0, MG_W, 28, C(10, 12, 20));
     ptext(g, 4, 8, name, 1, C(255, 210, 90)); mg_num(g, 80, 4, score, 2, C(255, 255, 255));
-    ptext(g, 150, 4, "REC", 1, C(130, 140, 170)); mg_num(g, 150, 15, best, 1, C(130, 140, 170));
+    ptext(g, 150, 4, TR("REC", "BEST"), 1, C(130, 140, 170)); mg_num(g, 150, 15, best, 1, C(130, 140, 170));
     rect(g, 216, 0, 40, 28, C(170, 30, 30)); put(g, 228, 8, 'X', 2, C(255, 255, 255));
 }
 static void mg_over(MG *m, int score) {
-    u16 *g = m->px; rect(g, 24, 150, 208, 90, C(24, 0, 0)); draw_wrapped(g, "FIM DE JOGO", 52, 162, 2, 12, 1, 0, C(255, 70, 70), 0);
-    ptext(g, 64, 192, "pontos", 1, C(200, 200, 200)); mg_num(g, 112, 188, score, 2, C(255, 255, 255)); draw_wrapped(g, "toque para jogar", 56, 218, 1, 20, 1, 0, C(255, 255, 255), 0);
+    u16 *g = m->px; rect(g, 24, 150, 208, 90, C(24, 0, 0)); draw_wrapped(g, TR("FIM DE JOGO", "GAME OVER"), 52, 162, 2, 12, 1, 0, C(255, 70, 70), 0);
+    ptext(g, 64, 192, TR("pontos", "points"), 1, C(200, 200, 200)); mg_num(g, 112, 188, score, 2, C(255, 255, 255)); draw_wrapped(g, TR("toque para jogar", "tap to play"), 56, 218, 1, 20, 1, 0, C(255, 255, 255), 0);
 }
 
 /* ---------------- Snake: 16x20 grid of 16px cells below a 40px HUD ---------------- */
@@ -47,11 +47,9 @@ static void snake_init(MG *m) {
 }
 static void snake_tick(MG *m) {
     Snake *s = &m->g.s;
-    if (m->tap) {
-        if (s->over) { snake_init(m); m->tap = 0; return; }
-        s->nd = (m->x < 128) ? (s->dir + 3) & 3 : (s->dir + 1) & 3; m->tap = 0;           /* tap left/right half = turn left/right */
-    }
-    if (s->over) return;
+    if (s->over) { if (m->tap || m->gev) snake_init(m); m->tap = 0; m->gev = 0; return; }
+    if (m->gev) { int d = m->gev - 1; if (((d + 2) & 3) != s->dir) s->nd = d; m->gev = 0; m->tap = 0; }          /* swipe = go that way (no U-turn) */
+    else if (m->tap) { s->nd = (m->x < 128) ? (s->dir + 3) & 3 : (s->dir + 1) & 3; m->tap = 0; }          /* tap left/right half = turn left/right */
     int every = 9 - s->score / 4; if (every < 3) every = 3;
     if (++s->step < every) return;
     s->step = 0; s->dir = s->nd;
@@ -145,15 +143,23 @@ static void tetris_tick(MG *m) {
     if (m->tap) {
         int tb = tt_hit(m->x, m->y); m->tap = 0;
         if (t->over) { tetris_init(m); return; }
-        if (tb == 1) { u16 r = tt_rot(t->cur); if (tt_fits(t, r, t->x, t->y)) t->cur = r; else if (tt_fits(t, r, t->x - 1, t->y)) { t->cur = r; t->x--; } else if (tt_fits(t, r, t->x + 1, t->y)) { t->cur = r; t->x++; } }
+        if (tb == 1 || tb < 0) { u16 r = tt_rot(t->cur); if (tt_fits(t, r, t->x, t->y)) t->cur = r; else if (tt_fits(t, r, t->x - 1, t->y)) { t->cur = r; t->x--; } else if (tt_fits(t, r, t->x + 1, t->y)) { t->cur = r; t->x++; } }
         else if (tb == 0 && tt_fits(t, t->cur, t->x - 1, t->y)) t->x--;
         else if (tb == 2 && tt_fits(t, t->cur, t->x + 1, t->y)) t->x++;
     }
-    if (t->over) return;
+    m->gev = 0; if (t->over) return;
+    int soft = 0;
+    if (m->pressed && b < 0 && m->sy >= 32 && m->sy < 372) {                    /* gestures on the board */
+        int dx = m->x - m->ax, dy = m->y - m->sy;
+        while (dx >= TT_CELL) { if (tt_fits(t, t->cur, t->x + 1, t->y)) t->x++; m->ax += TT_CELL; dx -= TT_CELL; }          /* drag sideways: one cell per 18 px */
+        while (dx <= -TT_CELL) { if (tt_fits(t, t->cur, t->x - 1, t->y)) t->x--; m->ax -= TT_CELL; dx += TT_CELL; }
+        if (dy > 90 && !m->swipe) { m->swipe = 1; while (tt_fits(t, t->cur, t->x, t->y + 1)) t->y++; tt_lock(m); return; }   /* long drag down: hard drop */
+        soft = dy > 22;                                                         /* drag down: soft drop */
+    }
     t->hold_l = (b == 0) ? t->hold_l + 1 : 0; t->hold_r = (b == 2) ? t->hold_r + 1 : 0;
     if (t->hold_l > 8 && (t->hold_l % 3) == 0 && tt_fits(t, t->cur, t->x - 1, t->y)) t->x--;
     if (t->hold_r > 8 && (t->hold_r % 3) == 0 && tt_fits(t, t->cur, t->x + 1, t->y)) t->x++;
-    int every = 22 - t->level * 2; if (every < 3) every = 3; if (b == 3) every = 2;
+    int every = 22 - t->level * 2; if (every < 3) every = 3; if (b == 3 || soft) every = 2;
     if (++t->t >= every) { t->t = 0; if (tt_fits(t, t->cur, t->x, t->y + 1)) t->y++; else tt_lock(m); }
 }
 static void tt_cell(u16 *g, int x, int y, u16 col) { rect(g, x, y, TT_CELL, TT_CELL, C(8, 8, 12)); rect(g, x + 1, y + 1, TT_CELL - 2, TT_CELL - 2, col); rect(g, x + 1, y + 1, TT_CELL - 2, 2, 0xFFFF & (col | 0x39E7)); }
@@ -162,10 +168,10 @@ static void tetris_draw(MG *m) {
     rect(g, TT_X - 2, TT_Y - 2, 10 * TT_CELL + 4, 20 * TT_CELL + 4, C(60, 70, 100)); rect(g, TT_X, TT_Y, 10 * TT_CELL, 20 * TT_CELL, C(0, 0, 0));
     for (int y = 0; y < 20; y++) for (int x = 0; x < 10; x++) if (t->board[y][x]) tt_cell(g, TT_X + x * TT_CELL, TT_Y + y * TT_CELL, tt_cols[t->board[y][x] - 1]);
     if (!t->over) for (int y = 0; y < 4; y++) for (int x = 0; x < 4; x++) if (t->cur & (0x8000 >> (y * 4 + x))) { int by = t->y + y; if (by >= 0) tt_cell(g, TT_X + (t->x + x) * TT_CELL, TT_Y + by * TT_CELL, tt_cols[t->shape]); }
-    ptext(g, 196, 36, "PROX", 1, C(130, 140, 170));
+    ptext(g, 196, 36, TR("PROX", "NEXT"), 1, C(130, 140, 170));
     for (int y = 0; y < 4; y++) for (int x = 0; x < 4; x++) if (tt_shapes[t->nshape] & (0x8000 >> (y * 4 + x))) rect(g, 198 + x * 12, 50 + y * 12, 11, 11, tt_cols[t->nshape]);
-    ptext(g, 196, 112, "NIVEL", 1, C(130, 140, 170)); mg_num(g, 196, 126, t->level, 2, C(255, 255, 255));
-    ptext(g, 196, 156, "LINHAS", 1, C(130, 140, 170)); mg_num(g, 196, 170, t->lines, 2, C(255, 255, 255));
+    ptext(g, 196, 112, TR("NIVEL", "LEVEL"), 1, C(130, 140, 170)); mg_num(g, 196, 126, t->level, 2, C(255, 255, 255));
+    ptext(g, 196, 156, TR("LINHAS", "LINES"), 1, C(130, 140, 170)); mg_num(g, 196, 170, t->lines, 2, C(255, 255, 255));
     for (int i = 0; i < 4; i++) { int b = m->pressed ? tt_hit(m->x, m->y) : -1; rect(g, tt_btn[i].x, tt_btn[i].y, tt_btn[i].w, tt_btn[i].h, i == b ? C(220, 160, 30) : C(40, 44, 60)); put(g, tt_btn[i].x + tt_btn[i].w / 2 - 8, tt_btn[i].y + 3, (uint32_t)(uint8_t)tt_btn[i].label, 2, C(255, 255, 255)); }
     mg_hud(m, "TETRIS", t->score, t->best); if (t->over) mg_over(m, t->score);
 }
@@ -211,8 +217,12 @@ static const struct { int x, y, w, h; char label; } g2_btn[4] = { { 98, 330, 60,
 static int g2_hit(int x, int y) { for (int i = 0; i < 4; i++) if (x >= g2_btn[i].x && x < g2_btn[i].x + g2_btn[i].w && y >= g2_btn[i].y && y < g2_btn[i].y + g2_btn[i].h) return i; return -1; }
 static void g2048_tick(MG *m) {
     G2048 *g = &m->g.g2; int dir = -1;
-    if (m->swipe) { dir = m->swipe - 1; m->swipe = 0; m->tap = 0; }
-    else if (m->tap) { int b = g2_hit(m->x, m->y); m->tap = 0; if (g->over) { g2_init(m); return; } if (b == 0) dir = 0; else if (b == 1) dir = 2; else if (b == 2) dir = 3; else if (b == 3) dir = 1; }
+    if (m->gev) { dir = m->gev - 1; m->gev = 0; m->tap = 0; }                                            /* swipe: moves as soon as the finger has travelled ~22 px */
+    else if (m->tap) {
+        int b = g2_hit(m->x, m->y); m->tap = 0; if (g->over) { g2_init(m); return; }
+        if (b == 0) dir = 0; else if (b == 1) dir = 2; else if (b == 2) dir = 3; else if (b == 3) dir = 1;
+        else if (m->y >= 36 && m->y < 328) { int dx = m->x - 128, dy = m->y - (G2_Y + 121), ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy; dir = ax > ay ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0); }   /* tap = the side of the board that was touched */
+    }
     if (g->over) { if (dir >= 0) g2_init(m); return; }
     if (dir >= 0 && g2_move(m, dir) && !g2_can_move(g)) { g->over = 1; MOTOR_ONCE(4, 0); }
 }
@@ -229,9 +239,9 @@ static void g2048_draw(MG *m) {
         if (e) { int v = 1 << e, d = mg_numw(v), sc = d >= 4 ? 1 : 2, w = d * 8 * sc; mg_num(p, x + (G2_T - w) / 2, y + (G2_T - 12 * sc) / 2, v, sc, e <= 2 ? C(110, 100, 90) : C(255, 255, 255)); }
     }
     for (int i = 0; i < 4; i++) { rect(p, g2_btn[i].x, g2_btn[i].y, g2_btn[i].w, g2_btn[i].h, C(60, 54, 48)); put(p, g2_btn[i].x + 22, g2_btn[i].y + 5, (uint32_t)(uint8_t)g2_btn[i].label, 2, C(255, 255, 255)); }
-    draw_wrapped(p, "deslize ou use as setas", 40, 36, 1, 26, 1, 0, C(150, 140, 130), 0);
+    draw_wrapped(p, TR("deslize, toque num lado ou use as setas", "swipe, tap a side or use the arrows"), 8, 36, 1, 30, 1, 0, C(150, 140, 130), 0);
     mg_hud(m, "2048", g->score, g->best);
-    if (g->won && !g->over) draw_wrapped(p, "2048! continue", 70, 54, 1, 20, 1, 0, C(255, 220, 90), 0);
+    if (g->won && !g->over) draw_wrapped(p, TR("2048! continue", "2048! keep going"), 70, 54, 1, 20, 1, 0, C(255, 220, 90), 0);
     if (g->over) mg_over(m, g->score);
 }
 
@@ -245,17 +255,26 @@ static void mg_tick(void *timer) {
 static void mg_close(MG *m) { TIMER_DEL(m->timer); ADD_FLAG(m->img, 1); FREE(m->cvblk); if (m->from_menu) menu_open(m->root); }
 static void mg_event(void *e) {
     int code = EV_CODE(e), x, y; MG *m = (MG *)EV_USER(e);
-    if (code == 1) { if (touch_read(&x, &y)) { m->pressed = 1; m->x = x; m->y = y; m->sx = x; m->sy = y; } return; }
-    if (code == 2) { if (touch_read(&x, &y)) { m->pressed = 1; m->x = x; m->y = y; } return; }
-    if (code == 8 || code == 3) {
-        m->pressed = 0;
-        if (m->kind == MG_2048) { int dx = m->x - m->sx, dy = m->y - m->sy, ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
-            if ((ax > 24 || ay > 24) && g2_hit(m->sx, m->sy) < 0) m->swipe = ax > ay ? (dx > 0 ? 2 : 4) : (dy > 0 ? 3 : 1); }     /* 1 up 2 right 3 down 4 left */
+    if (code == 1) {
+        if (touch_read(&x, &y)) {
+            m->pressed = 1; m->x = m->sx = m->ax = x; m->y = m->sy = m->ay = y; m->moved = 0; m->gev = 0; m->swipe = 0;
+            if (m->kind == MG_FLAPPY && !(x >= 216 && y < 28)) m->tap = 1;           /* flap on touch-down, not on release */
+        }
         return;
     }
+    if (code == 2) {
+        if (touch_read(&x, &y)) {
+            m->pressed = 1; m->x = x; m->y = y;
+            int dx = x - m->sx, dy = y - m->sy, ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
+            if (ax > 12 || ay > 12) m->moved = 1;
+            if (!m->gev && (ax >= 22 || ay >= 22)) m->gev = ax > ay ? (dx > 0 ? 2 : 4) : (dy > 0 ? 3 : 1);      /* one swipe gesture per touch, recognised while dragging */
+        }
+        return;
+    }
+    if (code == 8 || code == 3) { m->pressed = 0; return; }
     if (code != 7) return;
     if (m->x >= 216 && m->y < 28) { mg_close(m); return; }
-    if (m->swipe) return;
+    if (m->moved || m->kind == MG_FLAPPY) return;                                    /* a drag is not a tap; Flappy already flapped on touch-down */
     m->tap = 1;
 }
 static int mg_open(void *root, int kind, int from_menu) {

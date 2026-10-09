@@ -13,13 +13,15 @@ static const struct { const char *pt, *en; uint16_t bg, fg; u8 icon, act; } mtil
 #ifndef NO_GAMES
     { GAME_LABEL, GAME_LABEL, C(248, 190, 202), C(184, 56, 88), I_AIM, A_GAME },
 #endif
-#ifdef NET_APP
+#if defined(NET_APP) && defined(HAVE_WEB)
     { "Internet", "Internet", C(150, 232, 200), C(24, 120, 90), I_NET, A_NET },
     { "IA", "AI", C(232, 204, 250), C(140, 66, 186), I_AI, A_AI },
 #endif
+#ifdef HAVE_WEB
     { "Web", "Web", C(164, 228, 228), C(28, 126, 138), I_WEB, A_WEB },       { "Texto", "Text", C(252, 238, 168), C(146, 120, 18), I_TEXT, A_TEXT },
+#endif
     { "Ajuda", "Help", C(194, 204, 246), C(66, 82, 168), I_HELP, A_HELP },
-#ifndef NO_GAMES
+#ifdef HAVE_DOOM
     { "Doom", "Doom", C(246, 176, 166), C(166, 46, 38), I_DOOM, A_DOOM },
 #endif
     { "Fechar", "Close", C(226, 210, 220), C(126, 76, 98), I_CLOSE, A_CLOSE } };
@@ -38,14 +40,18 @@ static int menu_launch(void *root, int act) {
 #endif
 #ifndef NO_GAMES
     case A_GAME: return game_open(root, 1);
+#endif
+#ifdef HAVE_DOOM
     case A_DOOM: return dm_open(root, 1);
 #endif
-#ifdef NET_APP
+#if defined(NET_APP) && defined(HAVE_WEB)
     case A_NET: return net_open(root, 1);
     case A_AI: return ai_open(root, 1);
 #endif
+#ifdef HAVE_WEB
     case A_WEB: return br_open(root, 1);
     case A_TEXT: return wr_open(root, 1);
+#endif
     }
     return 0;
 }

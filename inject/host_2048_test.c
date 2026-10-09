@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+static int tp_st, tp_x, tp_y;
 static unsigned fake_now = 1000;
 static unsigned char fake_timer[64]; static int buzz;
 #define MOTOR_ONCE(a, b) (buzz++, 0)
@@ -21,7 +22,8 @@ static unsigned char fake_timer[64]; static int buzz;
 #define EV_USER(e) (*(void **)((char *)(e) + 8))
 #define EV_TARGET(e) ((void *)1)
 #define touch_read_stub 1
-#define TP_SAMPLE_GET(s) 0
+#define UI_LANG_ID 68
+#define TP_SAMPLE_GET(s) (((unsigned char *)(s))[1] = tp_st, *(unsigned short *)((unsigned char *)(s) + 4) = tp_x, *(unsigned short *)((unsigned char *)(s) + 6) = tp_y, 0)
 #define SEND_REPLY(a, b, c) 0
 #include "fit3_apps.c"
 static void dump(const u16 *fb, const char *name) {
@@ -40,15 +42,21 @@ int main(void) {
     printf("score=%d (expect 4+8 +4+4 +4 = 24)\n", g->score);
     /* random play until game over */
     mg_open((void *)1, MG_2048, 0); m = *(MG **)(fake_timer + 0xC); g = &m->g.g2; int moves = 0;
-    for (int i = 0; i < 20000 && !g->over; i++) { int d = (int)(mg_rand(m) % 4u); m->swipe = d + 1; fake_now += 33; mg_tick(fake_timer); moves++; }
+    for (int i = 0; i < 20000 && !g->over; i++) { int d = (int)(mg_rand(m) % 4u); m->gev = d + 1; fake_now += 33; mg_tick(fake_timer); moves++; }
     printf("random play: over=%d score=%d moves=%d best tile=", g->over, g->score, moves);
     int best = 0; for (int r = 0; r < 4; r++) for (int c = 0; c < 4; c++) if (g->b[r][c] > best) best = g->b[r][c]; printf("%d\n", 1 << best);
     dump(m->px, "g2048_over.ppm");
     /* a mid-game board for the screenshot */
     mg_open((void *)1, MG_2048, 0); m = *(MG **)(fake_timer + 0xC); g = &m->g.g2;
-    for (int i = 0; i < 60; i++) { m->swipe = (i % 3 == 0) ? 4 : (i % 3 == 1) ? 3 : 2; fake_now += 33; mg_tick(fake_timer); }
+    for (int i = 0; i < 60; i++) { m->gev = (i % 3 == 0) ? 4 : (i % 3 == 1) ? 3 : 2; fake_now += 33; mg_tick(fake_timer); }
     g->b[3][3] = 11; g->b[3][2] = 10; g->b[3][1] = 9; mg_draw(m); dump(m->px, "g2048.ppm"); printf("score=%d\n", g->score);
     /* swipe detection through the real event handler */
-    mg_open((void *)1, MG_2048, 0); m = *(MG **)(fake_timer + 0xC); m->sx = 100; m->sy = 200; m->x = 190; m->y = 205; { struct { int code; int pad; void *user; } ev = { 8, 0, m }; mg_event(&ev); } printf("swipe right -> %d (2 = right)\n", m->swipe);
+    mg_open((void *)1, MG_2048, 0); m = *(MG **)(fake_timer + 0xC);
+    { struct { int code; int pad; void *user; } ev = { 1, 0, m }; tp_st = 1; tp_x = 100; tp_y = 200; mg_event(&ev);
+      ev.code = 2; tp_x = 108; mg_event(&ev); printf("drag 8px -> gev=%d (0 = none yet)\n", m->gev);
+      tp_x = 130; mg_event(&ev); printf("drag 30px right -> gev=%d (2 = right, recognised while dragging)\n", m->gev);
+      ev.code = 7; mg_event(&ev); printf("click after a drag -> tap=%d (0 = ignored)\n", m->tap);
+      ev.code = 8; tp_st = 0; mg_event(&ev);
+      ev.code = 1; tp_st = 1; tp_x = 30; tp_y = 150; mg_event(&ev); ev.code = 7; mg_event(&ev); printf("tap left of board -> tap=%d\n", m->tap); m->tap = 0; m->x = 30; m->y = 150; ev.code = 8; mg_event(&ev); }
     return 0;
 }

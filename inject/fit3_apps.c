@@ -142,6 +142,7 @@ static int menu_open(void *root);
 typedef struct {
     u32 dsc[4]; u16 *cv; u16 *rfb, *zb; Rd *g; void *img, *timer; u32 *cvblk; void *root; int from_menu;
     int pressed, x, y; u32 last_tick; int fps, frames; u32 fps_t; M3dTex tex;
+    int moved, sx, sy, lx, ly, v0;                       /* drag-to-look: v0 = the touch started on the view (not on a button) */
 } GSt;
 typedef struct { int x, y, w, h; char label; int key; } Btn;
 enum { B_LU, B_LD, B_JUMP, B_RESET, B_TL, B_FWD, B_BACK, B_TR, B_N };
@@ -162,13 +163,20 @@ static void game_close(GSt *st) {
 }
 static void game_event(void *e) {
     int code = EV_CODE(e); GSt *st = (GSt *)EV_USER(e); int x, y;
-    if (code == 1 || code == 2) { if (touch_read(&x, &y)) { st->pressed = 1; st->x = x; st->y = y; } return; }
+    if (code == 1 || code == 2) {
+        if (touch_read(&x, &y)) {
+            if (code == 1 || !st->pressed) { st->sx = st->lx = x; st->sy = st->ly = y; st->moved = 0; st->v0 = hit_btn(x, y) < 0 && !in_close(x, y); }
+            st->pressed = 1; st->x = x; st->y = y;
+            if (x - st->sx > 12 || st->sx - x > 12 || y - st->sy > 12 || st->sy - y > 12) st->moved = 1;
+        }
+        return;
+    }
     if (code == 8 || code == 3) { st->pressed = 0; return; }
-    if (code == 7) {                                                      /* tap */
+    if (code == 7) {                                                      /* tap (a drag is not a tap: it looks around) */
         if (in_close(st->x, st->y)) { game_close(st); return; }
-        if (hit_btn(st->x, st->y) < 0) rd_key(st->g, RD_BREAK, 1);
+        if (!st->moved && hit_btn(st->x, st->y) < 0) rd_key(st->g, RD_BREAK, 1);
     } else if (code == 5) {                                               /* long press on the view: place block */
-        if (hit_btn(st->x, st->y) < 0 && !in_close(st->x, st->y)) rd_key(st->g, RD_PLACE, 1);
+        if (!st->moved && hit_btn(st->x, st->y) < 0 && !in_close(st->x, st->y)) rd_key(st->g, RD_PLACE, 1);
     }
 }
 static void game_ui(GSt *st) {
@@ -185,6 +193,8 @@ static void game_tick(void *timer) {
     GSt *st = *(GSt **)((u8 *)timer + 0xC); Rd *g = st->g;
     u32 now = TICK_GET();
     int hb = st->pressed ? hit_btn(st->x, st->y) : -1;
+    if (st->pressed && st->v0 && st->moved) rd_look(g, (float)(st->x - st->lx) * 3.0f, (float)(st->ly - st->y) * 3.0f);   /* drag on the view = look around */
+    st->lx = st->x; st->ly = st->y;
     rd_advance(g, (int64_t)now); int n = g->ticks; if (n > 3) n = 3;
     for (int i = 0; i < n; i++) {
         rd_key(g, RD_FWD, hb == B_FWD); rd_key(g, RD_BACK, hb == B_BACK); rd_key(g, RD_JUMP, hb == B_JUMP); rd_key(g, RD_RESET, hb == B_RESET);
@@ -217,15 +227,19 @@ static int game_open(void *root, int from_menu) {
 #endif /* NO_GAMES */
 
 #include "common.inc.c"
-#ifndef NO_GAMES
+#if !defined(NO_GAMES) && !defined(NO_DOOM)
 #include "doom.inc.c"
+#define HAVE_DOOM 1
 #endif
 #if !defined(NO_GAMES) || defined(MINI_GAMES)           /* Snake, Flappy, Tetris, 2048: small, so they fit next to the Internet app */
 #include "minigames.inc.c"
 #define HAVE_MINIGAMES 1
 #endif
+#ifndef NO_WEB                                         /* text reader, remote browser, Internet and AI all live here */
+#define HAVE_WEB 1
 #include "webreader.inc.c"
 #include "browser.inc.c"
+#endif
 #include "menu.inc.c"
 
 /* ================= hook ================= */

@@ -18,6 +18,7 @@ static unsigned char fake_timer[64]; static int buzz;
 #define TIMER_DEL(t) ((void)0)
 #define TIMER_CREATE(cb, p, u) (memcpy(fake_timer + 0xC, &(u), sizeof(void *)), (void *)fake_timer)
 #define EV_CODE(e) (*(int *)(e))
+#define UI_LANG_ID 68
 #define TP_SAMPLE_GET(s) 0
 #define SEND_REPLY(a, b, c) 0
 #include "fit3_apps.c"
