@@ -14,6 +14,7 @@ They inject small apps into the watch's main firmware image and repackage it for
 |---|---|
 | **T9 reply keyboard.** Every quick reply on a notification opens a full-screen pastel keypad (multi-tap, accents, `ç`, UTF-8), pre-filled with that reply; the received message is shown above the text box. OK sends it through the normal reply path. | `kbd/`, `inject/fit3_apps.c` |
 | **"Extra apps" launcher** (Settings > the relabelled "Tips and tutorials" entry): pastel 2x3 tile grid, two pages, swipe/arrows. UI text follows the watch language (pt-BR / English). | `inject/menu.inc.c` |
+| **Game Boy / Game Boy Color emulator** (no sound): CPU, MBC1/2/3/5, DMG + CGB video, touch pad. Loads *your* ROM from `/user/gb.gb` (send it with the "Enviar ROM" card of `webbridge/bridge.html`); battery saves in `/user/gb.sav`. Build with `--gb`. No ROMs are included. | `inject/gbcore.inc.c`, `inject/gb.inc.c` |
 | **Mini games:** Snake, Flappy, Tetris, 2048, with touch gestures (swipe, drag, tap zones). Build flags: `--noweb` (fully offline), `--nodoom`. | `inject/minigames.inc.c` |
 | **Internet over your phone's Bluetooth tethering** (BNEP / PAN): a small TCP/IP stack (ARP, IPv4, ICMP, UDP, DHCP, DNS, TCP) and an encrypted channel (ChaCha20-Poly1305, pre-shared key) to a private proxy that fetches pages (HTTPS included) and answers in a tiny text format. | `net/`, `inject/net.inc.c` |
 | **Text web reader** (numbered links, scrolling, history) and **Groq AI chat** (the API key never leaves the phone/PC). | `inject/webreader.inc.c`, `webbridge/groq.js`, `android/` |

@@ -3,8 +3,8 @@
  * Samsung-style: big rounded pastel tiles in a 2x3 grid, 2 pages (1/2, 2/2) with swipe, arrows and page dots.
  * Included by fit3_apps.c after the games (uses their helpers + the primitives in kbd.c). */
 typedef struct { u32 dsc[4]; u32 *cvblk; u16 *px; void *root, *img; int x, y, sx, sy, down, swiped, mode, page; } MSt;
-enum { A_SNAKE, A_FLAPPY, A_TETRIS, A_2048, A_GAME, A_WEB, A_TEXT, A_HELP, A_DOOM, A_NET, A_CLOSE, A_AI };
-enum { I_SNAKE, I_FLAPPY, I_TETRIS, I_2048, I_AIM, I_WEB, I_TEXT, I_HELP, I_DOOM, I_CLOSE, I_NET, I_AI };
+enum { A_SNAKE, A_FLAPPY, A_TETRIS, A_2048, A_GAME, A_WEB, A_TEXT, A_HELP, A_DOOM, A_NET, A_CLOSE, A_AI, A_GB };
+enum { I_SNAKE, I_FLAPPY, I_TETRIS, I_2048, I_AIM, I_WEB, I_TEXT, I_HELP, I_DOOM, I_CLOSE, I_NET, I_AI, I_GB };
 static const struct { const char *pt, *en; uint16_t bg, fg; u8 icon, act; } mtile[] = {
 #ifdef HAVE_MINIGAMES
     { "Snake", "Snake", C(176, 228, 200), C(40, 120, 84), I_SNAKE, A_SNAKE },   { "Flappy", "Flappy", C(178, 212, 246), C(48, 98, 172), I_FLAPPY, A_FLAPPY },
@@ -19,6 +19,9 @@ static const struct { const char *pt, *en; uint16_t bg, fg; u8 icon, act; } mtil
 #endif
 #ifdef HAVE_WEB
     { "Web", "Web", C(164, 228, 228), C(28, 126, 138), I_WEB, A_WEB },       { "Texto", "Text", C(252, 238, 168), C(146, 120, 18), I_TEXT, A_TEXT },
+#endif
+#ifdef HAVE_GB
+    { "GameBoy", "GameBoy", C(214, 232, 176), C(64, 96, 40), I_GB, A_GB },
 #endif
     { "Ajuda", "Help", C(194, 204, 246), C(66, 82, 168), I_HELP, A_HELP },
 #ifdef HAVE_DOOM
@@ -41,6 +44,9 @@ static int menu_launch(void *root, int act) {
 #ifndef NO_GAMES
     case A_GAME: return game_open(root, 1);
 #endif
+#ifdef HAVE_GB
+    case A_GB: return gb_open(root, 1);
+#endif
 #ifdef HAVE_DOOM
     case A_DOOM: return dm_open(root, 1);
 #endif
@@ -61,6 +67,9 @@ static void mt_rect(int i, int *x, int *y, int *w, int *h) {
 }
 static void micon(u16 *g, int i, int cx, int cy, uint16_t fg, uint16_t bg) {
     switch (i) {
+    case I_GB:                                                               /* Game Boy: a handheld */
+        rrect(g, cx - 17, cy - 24, 34, 48, 5, fg); rect(g, cx - 12, cy - 19, 24, 20, bg); rect(g, cx - 10, cy - 17, 20, 16, fg);
+        rect(g, cx - 12, cy + 7, 10, 3, bg); rect(g, cx - 9, cy + 4, 4, 9, bg); disc(g, cx + 8, cy + 6, 3, bg); disc(g, cx + 3, cy + 12, 3, bg); break;
     case I_AI:                                                               /* AI: a sparkle */
         rrect(g, cx - 4, cy - 24, 8, 48, 4, fg); rrect(g, cx - 24, cy - 4, 48, 8, 4, fg); disc(g, cx - 14, cy - 14, 5, fg); disc(g, cx + 14, cy - 14, 5, fg); disc(g, cx - 14, cy + 14, 5, fg); disc(g, cx + 14, cy + 14, 5, fg); disc(g, cx, cy, 9, bg); disc(g, cx, cy, 5, fg); break;
     case I_NET:                                                              /* Internet: signal bars */

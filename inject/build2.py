@@ -16,6 +16,7 @@ HOOKS = [(0x2c1d0802, 'cave', 0x2c112f58),        # quick-reply click handler: s
 LANG = [68, 52, 30, 13]
 name = sys.argv[1] if len(sys.argv) > 1 else 'apps'
 DEFS = ['-DNO_GAMES', '-DMINI_GAMES']                      # third-party games are not part of this repository
+if '--gb' in sys.argv: DEFS.append('-DWITH_GB')                       # Game Boy emulator tile
 if '--nodoom' in sys.argv: DEFS.append('-DNO_DOOM')                  # leave the Doom-style game out
 if '--noweb' in sys.argv: DEFS.append('-DNO_WEB')                    # no Web/Text readers (and no Internet/AI): fully offline build
 if '--marker-only' in sys.argv: DEFS.append('-DKBD_MARKER_ONLY')  # keyboard only for the "..." quick reply (old behaviour)

@@ -37,6 +37,11 @@
     <button id="btnGo" disabled>Buscar e enviar ao relógio</button>
   </div>
   <div class="card">
+    <b>Game Boy: enviar jogo (ROM)</b> <small>(o emulador do relógio lê <code>/user/gb.gb</code>; use um jogo seu, .gb ou .gbc)</small><br>
+    <input id="rom" type="file" accept=".gb,.gbc">
+    <button id="btnRom" disabled>Enviar ROM ao relógio</button> <span id="romPct"></span>
+  </div>
+  <div class="card">
     <b>Controle pelo teclado e mouse do PC</b> <small>(funciona mesmo sem o relógio conectado; o quadro também vai para o relógio quando ele está conectado)</small>
     <div class="bar" style="margin-top:8px">
       <button class="sec" id="pcBack">&lt;</button><button class="sec" id="pcFwd">&gt;</button><button class="sec" id="pcReload">Recarregar</button>
@@ -92,13 +97,14 @@ async function withLinkRaw(fn) {
   const l = new Link(port); await l.open();
   try { return await fn(l); } finally { await l.close(); }
 }
-async function writeFile(l, path, bytes) {
+async function writeFile(l, path, bytes, progress) {
   await l.send('300'); await l.expect('300');
   await l.send('33bin,' + path + ',' + bytes.length); await l.expect('330');
   const frame = new Uint8Array(39604), dv = new DataView(frame.buffer);
   for (let off = 0; off < bytes.length; off += 39600) {
     const blk = bytes.subarray(off, Math.min(off + 39600, bytes.length)); frame.set(blk); dv.setUint32(blk.length, crc32(blk), true);
     await l.send(frame.subarray(0, blk.length + 4)); await l.expect('310');
+    if (progress) progress(Math.min(100, Math.round((off + blk.length) * 100 / bytes.length)));
   }
   await l.send('32'); await l.expect('320'); await delay(250); await l.send('34'); await l.expect('340');
 }
@@ -117,8 +123,18 @@ async function readFile(l, path) {     // returns Uint8Array or null when the fi
 $('btnPair').onclick = async () => {
   try {
     port = await navigator.serial.requestPort({ filters: [{ bluetoothServiceClassId: SERVICE_UUID }], allowedBluetoothServiceClassIds: [SERVICE_UUID] });
-    $('btnTest').disabled = $('btnAuto').disabled = $('btnGo').disabled = false; log('relógio escolhido', 'ok');
+    $('btnTest').disabled = $('btnAuto').disabled = $('btnGo').disabled = $('btnRom').disabled = false; log('relógio escolhido', 'ok');
   } catch (e) { log('não escolhido: ' + e.message, 'bad'); }
+};
+$('btnRom').onclick = async () => {
+  const f = $('rom').files[0]; if (!f) { log('escolha um arquivo .gb/.gbc primeiro', 'bad'); return; }
+  try {
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    if (bytes.length < 0x150 || bytes.length > 4 * 1024 * 1024) throw new Error('arquivo com tamanho estranho (' + bytes.length + ' bytes)');
+    log('enviando ' + f.name + ' (' + bytes.length + ' bytes) para /user/gb.gb ...');
+    await withLink(l => writeFile(l, '/user/gb.gb', bytes, p => { $('romPct').textContent = p + '%'; }));
+    log('ROM enviada. No relógio: Apps > GameBoy.', 'ok');
+  } catch (e) { log('falha ao enviar a ROM: ' + e.message, 'bad'); }
 };
 $('btnTest').onclick = async () => {
   try {

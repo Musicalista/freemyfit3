@@ -235,6 +235,11 @@ static int game_open(void *root, int from_menu) {
 #include "minigames.inc.c"
 #define HAVE_MINIGAMES 1
 #endif
+#ifdef WITH_GB                                         /* Game Boy / Game Boy Color emulator (cartridge from /user/gb.gb) */
+#include "gbcore.inc.c"
+#include "gb.inc.c"
+#define HAVE_GB 1
+#endif
 #ifndef NO_WEB                                         /* text reader, remote browser, Internet and AI all live here */
 #define HAVE_WEB 1
 #include "webreader.inc.c"
