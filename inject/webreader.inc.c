@@ -306,7 +306,7 @@ static int wr_open2(void *root, int from_menu, int netmode) {
 }
 static int wr_open(void *root, int from_menu) { return wr_open2(root, from_menu, 0); }
 #ifdef NET_APP
-static int net_open(void *root, int from_menu) { return wr_open2(root, from_menu, 1); }
+static int net_open(void *root, int from_menu) { return wr_open2(root, from_menu, 4); }                  /* direct web access (no proxy) */
 static int dial_open(void *root, int from_menu) { return wr_open2(root, from_menu, 3); }                  /* phone dialer through the proxy */
 static int ai_open(void *root, int from_menu) { return wr_open2(root, from_menu, 2); }      /* Groq AI chat through the proxy */
 #endif

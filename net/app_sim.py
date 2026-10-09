@@ -37,11 +37,11 @@ class AppDut(ps.Dut):
 
 def status(dut):
     for t, d in dut.call('Q'):
-        if t == 's': return dict(phase=d[0], net=d[1], sc=d[2], mode=d[3], links=d[4], ev=d[5], lines=(d[6] << 8) | d[7], title=d[16:64].split(b'\0')[0].decode('utf8', 'replace'), text=d[64:].split(b'\0')[0].decode('utf8', 'replace'))
+        if t == 's': return dict(phase=d[0], net=d[1], sc=d[2], mode=d[3], links=d[4], ev=d[5], ds=d[8], tls=d[9], lines=(d[6] << 8) | d[7], title=d[16:64].split(b'\0')[0].decode('utf8', 'replace'), text=d[64:].split(b'\0')[0].decode('utf8', 'replace'))
 
 
 def run(name, loss=0.0, shot=None):
-    fails = []; dut = AppDut(); ph = ps.Phone(dut, 8788, loss=loss, seed=3)
+    fails = []; dut = AppDut(); ph = ps.Phone(dut, 8788, loss=loss, seed=3); ph.dns_names['site.test'] = 0x0A4D0002; ph.routes[0x0A4D0002] = ('127.0.0.1', 18080)
 
     def step(ms=50):
         dut.now += ms; ph.handle_out(dut.call('K', struct.pack('>I', dut.now))); ph.pump_sessions(dut.now); time.sleep(0.0005)
@@ -58,13 +58,13 @@ def run(name, loss=0.0, shot=None):
         until(lambda: status(dut)['mode'] == 0, 5000, 'welcome page shown')
         s = status(dut)
         if shot: dut.call('P', (shot + '_ready.ppm').encode())
-        ph.handle_out(dut.call('G', b'http://127.0.0.1:18080/'))
+        ph.handle_out(dut.call('G', b'http://site.test/'))
         until(lambda: status(dut)['mode'] == 0 and status(dut)['title'] != '' and status(dut)['title'] != 'Internet', 60000, 'page loaded')
         s = status(dut)
-        if s['title'] != 'Teste Fit3': fails.append('wrong title %r' % s['title'])
+        if s['title'] != 'Teste Fit3': fails.append('wrong title %r (text %r)' % (s['title'], s['text'][:60].encode('ascii', 'replace').decode()))
         if s['links'] != 1: fails.append('expected 1 link, got %d' % s['links'])
         if shot: dut.call('P', (shot + '_page.ppm').encode())
-        ph.handle_out(dut.call('G', b'http://127.0.0.1:18080/outra'))
+        ph.handle_out(dut.call('G', b'http://site.test/outra'))
         until(lambda: status(dut)['title'] == 'Segunda', 60000, 'second page loaded')
         if status(dut)['title'] != 'Segunda': fails.append('second page title %r' % status(dut)['title'])
     print('%-30s loss=%.2f frames=%4d dropped=%3d virtual=%6d ms -> %s' % (name, loss, ph.sent, ph.dropped, dut.now, 'OK' if not fails else 'FAIL ' + '; '.join(fails)))
@@ -74,7 +74,7 @@ def run(name, loss=0.0, shot=None):
     dut.close(); return not fails
 
 
-if __name__ == '__main__' and 'ai' not in sys.argv[1:] and 'dial' not in sys.argv[1:]:
+if __name__ == '__main__' and 'ai' not in sys.argv[1:] and 'dial' not in sys.argv[1:] and 'https' not in sys.argv[1:]:
     keyhex = os.path.join(HERE, 'test.key.hex')
     if not os.path.exists(keyhex): open(keyhex, 'w').write(open(os.path.join(HERE, 'test.key'), 'rb').read().hex() + '\n')
     web = http.server.ThreadingHTTPServer(('127.0.0.1', 18080), H); threading.Thread(target=web.serve_forever, daemon=True).start()
@@ -188,3 +188,38 @@ def main_dial():
 
 if __name__ == '__main__' and 'dial' in sys.argv[1:]:
     sys.exit(0 if main_dial() else 1)
+
+
+def run_https():
+    """TLS 1.3 to a local HTTPS server (self-signed certificate: the watch does not verify certificates) through the whole simulated phone."""
+    import ssl
+    fails = []; dut = AppDut(); ph = ps.Phone(dut, 8788, loss=0.0, seed=11); ph.dns_names['secure.test'] = 0x0A4D0003; ph.routes[0x0A4D0003] = ('127.0.0.1', 18443)
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.minimum_version = ssl.TLSVersion.TLSv1_3; ctx.load_cert_chain(os.path.join(HERE, 'test_tls.crt'), os.path.join(HERE, 'test_tls.key'))
+    srv = http.server.ThreadingHTTPServer(('127.0.0.1', 18443), H); srv.socket = ctx.wrap_socket(srv.socket, server_side=True); threading.Thread(target=srv.serve_forever, daemon=True).start()
+    def step(ms=50):
+        dut.now += ms; ph.handle_out(dut.call('K', struct.pack('>I', dut.now))); ph.pump_sessions(dut.now); time.sleep(0.0005)
+    def until(cond, limit_ms, what):
+        t = 0
+        while t < limit_ms:
+            if cond(): return True
+            step(); t += 50
+        fails.append('timeout: ' + what); return False
+    step(); step()
+    until(lambda: status(dut)['phase'] == 4, 60000, 'READY')
+    ph.handle_out(dut.call('G', b'https://secure.test/'))
+    until(lambda: status(dut)['mode'] == 0 and status(dut)['title'] not in ('', 'Internet'), 60000, 'https page loaded')
+    s = status(dut)
+    if s['title'] != 'Teste Fit3': fails.append('wrong title %r text %r' % (s['title'], s['text'][:60].encode('ascii', 'replace').decode()))
+    if s['links'] != 1: fails.append('expected 1 link, got %d' % s['links'])
+    ph.handle_out(dut.call('G', b'https://secure.test/outra'))
+    until(lambda: status(dut)['title'] == 'Segunda', 60000, 'second https page')
+    if status(dut)['title'] != 'Segunda': fails.append('second page title %r' % status(dut)['title'])
+    print('%-30s frames=%4d virtual=%6d ms -> %s' % ('HTTPS (TLS 1.3) via phone', ph.sent, dut.now, 'OK' if not fails else 'FAIL ' + '; '.join(fails)))
+    for t in ph.sess.values():
+        try: t.sock.close()
+        except Exception: pass
+    srv.shutdown(); dut.close(); return not fails
+
+
+if __name__ == '__main__' and 'https' in sys.argv[1:]:
+    sys.exit(0 if run_https() else 1)

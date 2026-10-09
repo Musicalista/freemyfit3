@@ -72,6 +72,7 @@ class Phone:
     def __init__(self, dut, proxy_port, loss=0.0, mss=1460, seed=1):
         self.dut, self.proxy_port, self.loss, self.mss = dut, proxy_port, loss, mss
         self.rng = random.Random(seed); self.sess = {}; self.watch_mac = None; self.events = []; self.msgs = []; self.sc_err = False
+        self.routes = {}                                           # fake destination IP -> (host, port) of a local test server (direct web access)
         self.dns_names = {'proxy.test': FAKE_PROXY_IP}; self.dropped = 0; self.sent = 0; self.pings = 0; self.filter_acked = False; self.arp_replied = False
 
     # ---- link ----
@@ -154,11 +155,12 @@ class Phone:
         sport, dport, seq, ack = struct.unpack('>HHII', s[:12]); hl = (s[12] >> 4) * 4; fl = s[13]; data = s[hl:]
         key = (sip, sport, dip, dport); t = self.sess.get(key)
         if fl & 2 and t is None:
-            if dip not in (FAKE_PROXY_IP, GW_IP): return                   # the phone itself (gateway) is also a valid proxy address
+            if dip not in (FAKE_PROXY_IP, GW_IP) and dip not in self.routes and dip != 0x7f000001: return     # the phone itself (gateway) is also a valid proxy address
             t = TcpSess(self, key, seq, self.mss); self.sess[key] = t
             for o in range(20, hl - 1):
                 if s[o] == 2 and s[o + 1] == 4: t.peer_mss = struct.unpack('>H', s[o + 2:o + 4])[0]; break
-            t.sock = socket.create_connection(('127.0.0.1', self.proxy_port)); t.sock.setblocking(False)
+            target = self.routes.get(dip) or (('127.0.0.1', dport) if dip == 0x7f000001 else ('127.0.0.1', self.proxy_port))
+            t.sock = socket.create_connection(target); t.sock.setblocking(False)
             t.seg(0x12, b'', t.iss, self.mss); return
         if fl & 2 and t is not None and t.state == 'syn': t.seg(0x12, b'', t.iss, self.mss); return            # retransmitted SYN
         if t is None: return

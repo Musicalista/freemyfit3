@@ -156,6 +156,10 @@ static int menu_open(void *root);
 #include "tools.inc.c"
 #define HAVE_TOOLS 1
 #endif
+#ifdef WITH_GAMES2                                      /* Pong, tic-tac-toe, Sudoku, Memory */
+#include "games2.inc.c"
+#define HAVE_GAMES2 1
+#endif
 #ifdef WITH_GB                                         /* Game Boy / Game Boy Color emulator (cartridge from /user/gb.gb) */
 #include "gbcore.inc.c"
 #include "gb.inc.c"
@@ -164,7 +168,9 @@ static int menu_open(void *root);
 #ifndef NO_WEB                                         /* text reader, remote browser, Internet and AI all live here */
 #define HAVE_WEB 1
 #include "webreader.inc.c"
+#ifndef NO_PCBRIDGE
 #include "browser.inc.c"
+#endif
 #endif
 #ifdef KBD_ONLY
 int menu_hook(void *root, int page) { (void)root; (void)page; return 0; }          /* no launcher in the keyboard-only build */

@@ -18,8 +18,9 @@ They inject small apps into the watch's main firmware image and repackage it for
 | **Block world game** (original code): title menu, generated worlds (hills, flat, mountains, desert), 14 blocks with generated textures, creative flight, hotbar + inventory, pause menu, saves to `/user/mc.sav`. Build with `--blocks`. | `src/vox.c`, `inject/mc_game.inc.c` |
 | **Tools** (`--tools`): calculator, stopwatch + timer, flashlight, notes (T9 keyboard), counter, dice and coin. | `inject/tools.inc.c` |
 | **Phone dialer** (Internet builds): a keypad on the watch; the Fit3 Hub app places the call on the phone through the encrypted proxy (needs the Phone permission). | `inject/webreader.inc.c`, `android/` |
+| **More games:** Pong, tic-tac-toe, Sudoku, Memory (`--games2`). | `inject/games2.inc.c` |
 | **Mini games:** Snake, Flappy, Tetris, 2048, with touch gestures (swipe, drag, tap zones). Build flags: `--noweb` (fully offline), `--nodoom`. | `inject/minigames.inc.c` |
-| **Internet over your phone's Bluetooth tethering** (BNEP / PAN): a small TCP/IP stack (ARP, IPv4, ICMP, UDP, DHCP, DNS, TCP) and an encrypted channel (ChaCha20-Poly1305, pre-shared key) to a private proxy that fetches pages (HTTPS included) and answers in a tiny text format. | `net/`, `inject/net.inc.c` |
+| **Internet over your phone's Bluetooth tethering, with nothing else** (`--direct`): the watch has its own TCP/IP stack (BNEP, ARP, IPv4, DHCP, DNS, TCP), speaks **HTTP/1.1 and TLS 1.3** (X25519 + ChaCha20-Poly1305, SNI; the server certificate is **not verified**) and turns HTML into text on the fly. No proxy, no phone app, no PC. Sites that only speak TLS 1.2 do not open. Search uses DuckDuckGo Lite. (`--net` keeps the older encrypted proxy for the AI chat and the phone dialer.) | `net/`, `inject/net.inc.c`, `inject/direct.inc.c` |
 | **Text web reader** (numbered links, scrolling, history) and **Groq AI chat** (the API key never leaves the phone/PC). | `inject/webreader.inc.c`, `webbridge/groq.js`, `android/` |
 | **Fit3 Hub (Android app):** runs the proxy on the phone and manages the watch over the flasher's Bluetooth serial service (AT commands, read files). It does **not** flash firmware. | `android/` |
 | **PC bridge:** a headless Chrome rendered to the watch (16 colours) with PC keyboard/mouse control, plus the same proxy running on a PC. | `webbridge/` |
@@ -46,7 +47,8 @@ set ARM_GNU_BIN=C:\Program Files (x86)\Arm GNU Toolchain arm-none-eabi\14.2 rel1
 set FIT3_STOCK=C:\path\to\stock-aza3.bin
 set FLASHER_DIR=C:\path\to\fit3-flasher
 python inject/build2.py apps              # keyboard + launcher + mini games + web reader
-python inject/build2.py net --net         # ... plus Internet + AI (generates webbridge/proxy.key and inject/net_cfg.h)
+python inject/build2.py direct --nogames --direct   # Internet straight over the Bluetooth tethering (no proxy, no phone app)
+python inject/build2.py net --net         # ... plus the encrypted-proxy features: AI chat and phone dialer (generates webbridge/proxy.key and inject/net_cfg.h)
 ```
 The package lands in `dist/` (the flasher's validator runs at the end). The first build also generates the font (`kbd/make_font.py`, uses a font from your Windows).
 `--marker-only` restores the old behaviour (only the `...` quick reply opens the keyboard).

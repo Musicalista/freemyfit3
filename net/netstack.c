@@ -268,6 +268,7 @@ void net_link_rx(Net *n, const uint8_t *p, int len) {
     if (proto == 0x0806) arp_rx(n, p + o, len - o); else if (proto == 0x0800) ip_rx(n, p + o, len - o);
 }
 
+#ifndef NET_NO_SC
 /* ---------- secure channel ---------- */
 static void sc_nonce(uint8_t nonce[12], int dir, uint64_t ctr) { nonce[0] = (uint8_t)dir; nonce[1] = nonce[2] = nonce[3] = 0; for (int i = 0; i < 8; i++) nonce[4 + i] = (uint8_t)(ctr >> (56 - 8 * i)); }
 int sc_connect(Net *n, const char *host, uint16_t port, const uint8_t psk[32]) {
@@ -320,6 +321,7 @@ int sc_recv(Net *n, uint8_t *out, int max) {
     { int r = rec_read(n, out, max); if (r < 0) { n->sc.state = SC_ERR; return -1; } return r; }
 }
 
+#endif
 /* ---------- lifecycle / timers ---------- */
 void net_init(Net *n, const NetOps *ops, const uint8_t mac[6]) {
     nset(n, 0, (int)sizeof *n); n->ops = *ops; ncpy(n->mac, mac, 6); n->state = NS_DOWN;
@@ -344,7 +346,9 @@ void net_tick(Net *n) {
         if (n->tcp.state == TCP_SYN && now - n->tcp.t0 > 1500u) { if (++n->tcp.tries > 5) n->tcp.state = TCP_ERR; else { n->tcp.t0 = now; tcp_send(n, TF_SYN, 0, 0, n->tcp.iss); } }
         if (n->tcp.tx_busy && now - n->tcp.t0 > 1500u) { if (++n->tcp.tries > 8) { n->tcp.state = TCP_ERR; n->tcp.tx_busy = 0; } else { n->tcp.t0 = now; { int rem = n->tcp.txlen - n->tcp.txoff; int l = rem < n->tcp.mss ? rem : n->tcp.mss; tcp_send(n, TF_ACK | TF_PSH, n->tcp.tx + n->tcp.txoff, l, n->tcp.snd_una); } } }
         if (n->tcp.state == TCP_FINW && now - n->tcp.t0 > 3000u) n->tcp.state = TCP_CLOSED;
+#ifndef NET_NO_SC
         sc_step(n);
+#endif
         break;
     default: break;
     }

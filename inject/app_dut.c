@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
         case 'T': { tp_x = (in[0] << 8) | in[1]; tp_y = (in[2] << 8) | in[3]; tp_down = 1; Ev e = { 1, w }; wr_event(&e); tp_down = 0; e.code = 8; wr_event(&e); e.code = 7; wr_event(&e); break; }
         case 'P': dump((const char *)in); break;
         case 'Q': { NG *g = (NG *)w->ng; uint8_t s[16 + 48 + 48]; memset(s, 0, sizeof s); s[0] = g->phase; s[1] = g->net->state; s[2] = g->net->sc.state; s[3] = (uint8_t)w->mode; s[4] = (uint8_t)w->nlinks; s[5] = (uint8_t)g->last_ev;
-                   s[6] = (uint8_t)(w->nlines >> 8); s[7] = (uint8_t)w->nlines; strncpy((char *)s + 16, w->title, 47); strncpy((char *)s + 64, (const char *)w->buf + w->text_off, 47); out('s', s, 16 + 48 + 48); break; }
+                   s[8] = g->ds; s[9] = (uint8_t)g->tls ? (uint8_t)((Tls *)g->tls)->state : 9; s[6] = (uint8_t)(w->nlines >> 8); s[7] = (uint8_t)w->nlines; strncpy((char *)s + 16, w->title, 47); strncpy((char *)s + 64, (const char *)w->buf + w->text_off, 47); out('s', s, 16 + 48 + 48); break; }
         default: break;
         }
         out('z', 0, 0); fflush(stdout);

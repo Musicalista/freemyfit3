@@ -26,6 +26,8 @@ webbridge/groq.cfg
 net/proxy.cfg
 net/test.key
 net/test.key.hex
+net/test_tls.key
+net/test_tls.crt
 net/vectors.txt
 android/*.keystore
 android/*.keystore.pw

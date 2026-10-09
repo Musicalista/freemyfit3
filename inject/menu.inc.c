@@ -3,8 +3,8 @@
  * Samsung-style: big rounded pastel tiles in a 2x3 grid, 2 pages (1/2, 2/2) with swipe, arrows and page dots.
  * Included by fit3_apps.c after the games (uses their helpers + the primitives in kbd.c). */
 typedef struct { u32 dsc[4]; u32 *cvblk; u16 *px; void *root, *img; int x, y, sx, sy, down, swiped, mode, page; } MSt;
-enum { A_SNAKE, A_FLAPPY, A_TETRIS, A_2048, A_GAME, A_WEB, A_TEXT, A_HELP, A_DOOM, A_NET, A_CLOSE, A_AI, A_GB, A_TOOLS, A_DIAL };
-enum { I_SNAKE, I_FLAPPY, I_TETRIS, I_2048, I_AIM, I_WEB, I_TEXT, I_HELP, I_DOOM, I_CLOSE, I_NET, I_AI, I_GB, I_TOOLS, I_DIAL };
+enum { A_SNAKE, A_FLAPPY, A_TETRIS, A_2048, A_GAME, A_WEB, A_TEXT, A_HELP, A_DOOM, A_NET, A_CLOSE, A_AI, A_GB, A_TOOLS, A_DIAL, A_GAMES2 };
+enum { I_SNAKE, I_FLAPPY, I_TETRIS, I_2048, I_AIM, I_WEB, I_TEXT, I_HELP, I_DOOM, I_CLOSE, I_NET, I_AI, I_GB, I_TOOLS, I_DIAL, I_GAMES2 };
 static const struct { const char *pt, *en; uint16_t bg, fg; u8 icon, act; } mtile[] = {
 #ifdef HAVE_MINIGAMES
     { "Snake", "Snake", C(176, 228, 200), C(40, 120, 84), I_SNAKE, A_SNAKE },   { "Flappy", "Flappy", C(178, 212, 246), C(48, 98, 172), I_FLAPPY, A_FLAPPY },
@@ -15,11 +15,16 @@ static const struct { const char *pt, *en; uint16_t bg, fg; u8 icon, act; } mtil
 #endif
 #if defined(NET_APP) && defined(HAVE_WEB)
     { "Internet", "Internet", C(150, 232, 200), C(24, 120, 90), I_NET, A_NET },
+#ifndef NET_DIRECT_ONLY
     { "IA", "AI", C(232, 204, 250), C(140, 66, 186), I_AI, A_AI },
     { "Discador", "Dialer", C(196, 236, 190), C(40, 128, 70), I_DIAL, A_DIAL },
 #endif
-#ifdef HAVE_WEB
+#endif
+#if defined(HAVE_WEB) && !defined(NO_PCBRIDGE)
     { "Web", "Web", C(164, 228, 228), C(28, 126, 138), I_WEB, A_WEB },       { "Texto", "Text", C(252, 238, 168), C(146, 120, 18), I_TEXT, A_TEXT },
+#endif
+#ifdef HAVE_GAMES2
+    { "Mais jogos", "More games", C(248, 214, 190), C(176, 92, 40), I_GAMES2, A_GAMES2 },
 #endif
 #ifdef HAVE_TOOLS
     { "Utilitarios", "Tools", C(190, 226, 240), C(34, 100, 140), I_TOOLS, A_TOOLS },
@@ -54,15 +59,20 @@ static int menu_launch(void *root, int act) {
 #ifdef HAVE_TOOLS
     case A_TOOLS: return tl_open(root, 1);
 #endif
+#ifdef HAVE_GAMES2
+    case A_GAMES2: return gm2_open(root, 1);
+#endif
 #ifdef HAVE_DOOM
     case A_DOOM: return dm_open(root, 1);
 #endif
 #if defined(NET_APP) && defined(HAVE_WEB)
     case A_NET: return net_open(root, 1);
+#ifndef NET_DIRECT_ONLY
     case A_AI: return ai_open(root, 1);
     case A_DIAL: return dial_open(root, 1);
 #endif
-#ifdef HAVE_WEB
+#endif
+#if defined(HAVE_WEB) && !defined(NO_PCBRIDGE)
     case A_WEB: return br_open(root, 1);
     case A_TEXT: return wr_open(root, 1);
 #endif
@@ -77,6 +87,8 @@ static void micon(u16 *g, int i, int cx, int cy, uint16_t fg, uint16_t bg) {
     switch (i) {
     case I_DIAL:                                                             /* Dialer: a phone handset */
         rrect(g, cx - 22, cy - 6, 44, 14, 6, fg); rrect(g, cx - 24, cy - 6, 14, 26, 6, fg); rrect(g, cx + 10, cy - 6, 14, 26, 6, fg); rrect(g, cx - 12, cy - 22, 24, 14, 5, fg); rect(g, cx - 6, cy - 4, 12, 6, bg); break;
+    case I_GAMES2:                                                           /* More games: a small gamepad */
+        rrect(g, cx - 24, cy - 12, 48, 28, 12, fg); rect(g, cx - 16, cy - 2, 12, 4, bg); rect(g, cx - 12, cy - 6, 4, 12, bg); disc(g, cx + 10, cy - 2, 3, bg); disc(g, cx + 17, cy + 5, 3, bg); break;
     case I_TOOLS:                                                            /* Tools: a wrench-like gear */
         disc(g, cx, cy, 17, fg); disc(g, cx, cy, 8, bg); for (int k = 0; k < 4; k++) { int dx = (k & 1) ? 17 : -17, dy = (k & 2) ? 17 : -17; (void)dy; } rect(g, cx - 4, cy - 25, 8, 12, fg); rect(g, cx - 4, cy + 13, 8, 12, fg); rect(g, cx - 25, cy - 4, 12, 8, fg); rect(g, cx + 13, cy - 4, 12, 8, fg); break;
     case I_GB:                                                               /* Game Boy: a handheld */
