@@ -37,6 +37,7 @@ typedef struct {
     u16 *lines; int nlines, top, ltop;
     int pressed, x, y, sx, sy, lasty, moved, acc, tap, dirty, mode, kbd_open;
     u32 seq_wait, wait_t0, last_poll, last_seq; char title[48], url[128]; char hist[6][128]; int nh;
+    void *ng; int netmode;                                                         /* Internet mode (NET_APP): NG state from net.inc.c */
 } WR;
 
 static int wr_slen(const char *s) { int n = 0; while (s[n]) n++; return n; }
@@ -102,9 +103,15 @@ static void wr_set_text(WR *w, const char *title, const char *body) {           
     for (int i = 0; body[i] && n < WR_BUF - 16; i++) w->buf[n++] = (u8)body[i];
     w->buf[n++] = '\n'; w->buf[n++] = 1; w->buf[n++] = '\n'; w->len = n; w->buf[n] = 0; w->url[0] = 0; wr_parse(w, 0); w->mode = WM_PAGE; w->dirty = 1;
 }
+#ifdef NET_APP
+#include "net.inc.c"
+#endif
 static void wr_go(WR *w, const char *q, int push) {
     if (!q || !q[0]) return;
     if (push && w->url[0] && w->nh < 6) { int k = 0; while (w->url[k] && k < 127) { w->hist[w->nh][k] = w->url[k]; k++; } w->hist[w->nh][k] = 0; w->nh++; }
+#ifdef NET_APP
+    if (w->netmode) { ng_request(w, q); return; }
+#endif
     u32 seq = (TICK_GET() & 0x3fffffffu) | 1u; if (seq == w->last_seq) seq += 2;
     u8 req[200]; int n = 0; req[n++] = 'R'; char d[12]; int dl = 0; u32 v = seq; do { d[dl++] = (char)('0' + v % 10); v /= 10; } while (v);
     while (dl) req[n++] = (u8)d[--dl]; req[n++] = '\n';
@@ -131,11 +138,14 @@ static void wr_draw(WR *w) {
     rect(g, 0, 0, KBD_W, 28, C(22, 26, 42));
     rect(g, 2, 2, 28, 24, C(40, 60, 110)); put(g, 8, 4, '<', 2, C(255, 255, 255));
     rect(g, 32, 2, 28, 24, w->mode == WM_LINKS ? C(200, 140, 30) : C(40, 60, 110)); put(g, 38, 4, 'L', 2, C(255, 255, 255));
-    rect(g, 62, 2, 34, 24, C(30, 120, 60)); ptext(g, 64, 4, "Ir", 2, C(255, 255, 255));
-    draw_wrapped(g, w->mode == WM_WAIT ? "Aguardando a ponte" : (w->title[0] ? w->title : "Web"), 100, 8, 1, 14, 1, 0, C(255, 210, 90), 0);
+    rect(g, 62, 2, 34, 24, C(30, 120, 60)); ptext(g, 64, 4, TR("Ir", "Go"), 2, C(255, 255, 255));
+    draw_wrapped(g, w->mode == WM_WAIT ? (w->netmode ? (w->netmode == 2 ? "IA" : "Internet") : TR("Aguardando a ponte", "Waiting for the bridge")) : (w->title[0] ? w->title : "Web"), 100, 8, 1, 14, 1, 0, C(255, 210, 90), 0);
     rect(g, 216, 0, 40, 28, C(170, 30, 30)); put(g, 228, 8, 'X', 2, C(255, 255, 255));
+#ifdef NET_APP
+    if (w->mode == WM_WAIT && w->netmode) { ng_draw_status(w, g); } else
+#endif
     if (w->mode == WM_WAIT) {
-        draw_wrapped(g, "Pedido enviado ao PC.\n\nNo PC: rode  node server.js  e abra  http://127.0.0.1:8787  no Chrome, escolha o rel\xc3\xb3" "gio e ligue o modo navegador.\n\nToque em X para cancelar.", 8, 50, 1, 30, 20, 0, C(235, 235, 240), 0);
+        draw_wrapped(g, TR("Pedido enviado ao PC.\n\nNo PC: rode  node server.js  e abra  http://127.0.0.1:8787  no Chrome, escolha o rel\xc3\xb3" "gio e ligue o modo navegador.\n\nToque em X para cancelar.", "Request sent to the PC.\n\nOn the PC: run  node server.js  and open  http://127.0.0.1:8787  in Chrome, choose the watch and turn on browser mode.\n\nTap X to cancel."), 8, 50, 1, 30, 20, 0, C(235, 235, 240), 0);
         int dots = (int)((TICK_GET() / 400u) % 4u); for (int i = 0; i < dots; i++) rect(g, 100 + i * 14, 200, 8, 8, C(255, 210, 90));
     } else if (w->mode == WM_LINKS) {
         for (int i = 0; i < 14; i++) {
@@ -144,7 +154,7 @@ static void wr_draw(WR *w) {
             const char *u = (const char *)w->buf + w->link_off[n]; int len = wr_slen(u); if (len > 28) len = 28; char tmp[32]; for (int k = 0; k < len; k++) tmp[k] = u[k]; tmp[len] = 0;
             draw_wrapped(g, tmp, 30, y + 5, 1, 28, 1, 0, C(235, 235, 240), 0);
         }
-        if (!w->nlinks) draw_wrapped(g, "(sem links)", 8, 50, 1, 20, 1, 0, C(150, 160, 190), 0);
+        if (!w->nlinks) draw_wrapped(g, TR("(sem links)", "(no links)"), 8, 50, 1, 20, 1, 0, C(150, 160, 190), 0);
     } else {
         const u8 *t = w->buf + w->text_off;
         for (int r = 0; r < WR_ROWS; r++) {
@@ -168,15 +178,27 @@ static int wr_link_at(WR *w, int x, int y) {                                    
     }
     return 0;
 }
-static void wr_close(WR *w) { TIMER_DEL(w->timer); ADD_FLAG(w->img, 1); FREE(w->cvblk); FREE(w->buf); FREE(w->lines); if (w->from_menu) menu_open(w->root); }
+static void wr_close(WR *w) {
+    TIMER_DEL(w->timer); ADD_FLAG(w->img, 1);
+#ifdef NET_APP
+    if (w->netmode && w->ng) { NG *g = (NG *)w->ng; ng_stop(g); w->ng = 0; FREE(g->net); FREE(g); }   /* the Bluetooth thread may still run a job: they only use the channel pointer and a malloc'd buffer */
+#endif
+    FREE(w->cvblk); FREE(w->buf); FREE(w->lines); if (w->from_menu) menu_open(w->root);
+}
 static void wr_nav_link(WR *w, int n) { if (n > 0 && n < WR_MAXLINKS && w->link_off[n]) wr_go(w, (const char *)w->buf + w->link_off[n], 1); }
 static void wr_tap(WR *w, int x, int y) {
-    if (w->mode == WM_WAIT) { if (x >= 216 && y < 28) wr_close(w); return; }
+    if (w->mode == WM_WAIT) {
+        if (x >= 216 && y < 28) { wr_close(w); return; }
+#ifdef NET_APP
+        if (w->netmode && w->ng && ((NG *)w->ng)->phase == NP_FAIL) { NG *g = (NG *)w->ng; ng_stop(g); g->t0 = TICK_GET() | 1u; w->dirty = 1; }   /* tap = try again */
+#endif
+        return;
+    }
     if (y < 28) {
         if (x >= 216) { wr_close(w); return; }
         if (x < 30) { if (w->nh > 0) { w->nh--; wr_go(w, w->hist[w->nh], 0); } return; }
         if (x >= 32 && x < 60) { w->mode = (w->mode == WM_LINKS) ? WM_PAGE : WM_LINKS; w->dirty = 1; return; }
-        if (x >= 62 && x < 96) { w->kbd_open = kbd_open_cb(w->root, "Ir para", "Digite um endereco (ex.: example.com) ou uma busca", (void *)wr_kbd_done, w); return; }
+        if (x >= 62 && x < 96) { w->kbd_open = w->netmode == 2 ? kbd_open_cb(w->root, TR("Pergunta", "Question"), TR("Digite sua pergunta para a IA", "Type your question for the AI"), (void *)wr_kbd_done, w) : kbd_open_cb(w->root, TR("Ir para", "Go to"), TR("Digite um endereco (ex.: example.com) ou uma busca", "Type an address (e.g. example.com) or a search"), (void *)wr_kbd_done, w); return; }
         return;
     }
     if (y >= 374) { int page = w->mode == WM_LINKS ? 14 : WR_ROWS - 1; int *tp = w->mode == WM_LINKS ? &w->ltop : &w->top; int mx = (w->mode == WM_LINKS ? w->nlinks : w->nlines) - 1;
@@ -203,31 +225,55 @@ static void wr_event(void *e) {
 }
 static void wr_tick(void *timer) {
     WR *w = *(WR **)((u8 *)timer + 0xC); u32 now = TICK_GET();
+#ifdef NET_APP
+    if (w->netmode) ng_tick(w); else
+#endif
     if (w->mode == WM_WAIT) {
         if (now - w->last_poll >= 1000u) {
             w->last_poll = now;
             if (wr_load_file(w, w->seq_wait)) { w->mode = WM_PAGE; MOTOR_ONCE(1, 0); w->dirty = 1; }
-            else if (now - w->wait_t0 > 90000u) { wr_set_text(w, "Sem resposta", "A ponte no PC nao respondeu em 90 s.\nConfira o servidor, o modo navegador e o Bluetooth, e tente de novo."); }
+            else if (now - w->wait_t0 > 90000u) { wr_set_text(w, TR("Sem resposta", "No answer"), TR("A ponte no PC nao respondeu em 90 s.\nConfira o servidor, o modo navegador e o Bluetooth, e tente de novo.", "The PC bridge did not answer in 90 s.\nCheck the server, browser mode and Bluetooth, then try again.")); }
         }
         w->dirty = 1;                                                                  /* animate the dots */
     }
     if (w->dirty) { w->dirty = 0; wr_draw(w); INVALIDATE(w->img); }
 }
-static int wr_open(void *root, int from_menu) {
+static int wr_open2(void *root, int from_menu, int netmode) {
     WR *w = (WR *)MALLOC(sizeof(WR)); if (!w) return 0;
     u32 *blk = (u32 *)MALLOC(KBD_W * KBD_H * 2 + 8); u8 *buf = (u8 *)MALLOC(WR_BUF); u16 *lines = (u16 *)MALLOC(WR_MAXLINES * 2);
     if (!blk || !buf || !lines) { if (blk) FREE(blk); if (buf) FREE(buf); if (lines) FREE(lines); FREE(w); return 0; }
     for (unsigned i = 0; i < sizeof *w; i++) ((u8 *)w)[i] = 0;
     w->cvblk = blk; w->px = (u16 *)((u8 *)blk + 8); w->root = root; w->from_menu = from_menu; w->buf = buf; w->lines = lines;
-    if (!wr_load_file(w, 0))
-        wr_set_text(w, "Navegador web",
-            "Este navegador mostra paginas como texto, pela ponte no PC.\n\n"
+    if (netmode) { w->mode = WM_WAIT; }
+    else if (!wr_load_file(w, 0))
+        wr_set_text(w, TR("Navegador web", "Web browser"),
+            TR("Este navegador mostra paginas como texto, pela ponte no PC.\n\n"
             "1. No PC, rode:  node server.js  (pasta webbridge) e abra http://127.0.0.1:8787 no Chrome.\n"
             "2. Escolha o rel\xc3\xb3" "gio, teste os arquivos e ligue o modo navegador.\n"
             "3. Aqui, toque em Ir, digite um endere\xc3\xa7o ou uma busca e confirme com OK.\n\n"
-            "Toque em um [n] para abrir o link. Arraste para rolar. L lista os links; < volta.");
-    w->mode = WM_PAGE; wr_draw(w);
+            "Toque em um [n] para abrir o link. Arraste para rolar. L lista os links; < volta.",
+               "This browser shows pages as text, through the bridge on the PC.\n\n"
+               "1. On the PC, run  node server.js  (webbridge folder) and open http://127.0.0.1:8787 in Chrome.\n"
+               "2. Choose the watch, test the files and turn on browser mode.\n"
+               "3. Here, tap Go, type an address or a search and confirm with OK.\n\n"
+               "Tap a [n] to open the link. Drag to scroll. L lists the links; < goes back."));
+#ifdef NET_APP
+    if (netmode) {
+        NG *g = (NG *)MALLOC(sizeof(NG)); Net *net = (Net *)MALLOC(sizeof(Net));
+        if (!g || !net) { if (g) FREE(g); if (net) FREE(net); FREE(blk); FREE(buf); FREE(lines); FREE(w); return 0; }
+        for (unsigned i = 0; i < sizeof *g; i++) ((u8 *)g)[i] = 0;
+        g->net = net; g->rng = TICK_GET() ^ (u32)(void *)g ^ 0x9e3779b9u; g->phase = NP_IDLE; g->t0 = 0; w->ng = g; w->netmode = netmode;
+    }
+#endif
+    if (!netmode) w->mode = WM_PAGE;
+    wr_draw(w);
     w->img = make_canvas(root, w->dsc, w->px, (void *)wr_event, w);
-    w->timer = TIMER_CREATE((void *)wr_tick, 100, w);
+    w->timer = TIMER_CREATE((void *)wr_tick, netmode ? 50 : 100, w);
     return 1;
 }
+static int wr_open(void *root, int from_menu) { return wr_open2(root, from_menu, 0); }
+#ifdef NET_APP
+static int net_open(void *root, int from_menu) { return wr_open2(root, from_menu, 1); }
+static int ai_open(void *root, int from_menu) { return wr_open2(root, from_menu, 2); }      /* Groq AI chat through the proxy */
+#endif
+

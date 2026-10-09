@@ -1,14 +1,32 @@
-# never commit firmware (Samsung's property), build output or captures
+# never commit firmware (Samsung's property), build output, captures or SECRETS
 firmware/
 work/
 dist/
+out/
+out_pc/
 *.bin
 *.elf
 *.o
 *.exe
+*.apk
 *.ppm
 *.png
+*.pyc
+__pycache__/
 inject/lang/
+inject/net_cfg.h
+inject/main_*.bin
 kbd/kbd_font.h
 kbd/font8x12.json
 node_modules/
+# secrets and per-machine files
+webbridge/proxy.key
+webbridge/groq.key
+webbridge/groq.cfg
+net/proxy.cfg
+net/test.key
+net/test.key.hex
+net/vectors.txt
+android/*.keystore
+android/*.keystore.pw
+android/assets/

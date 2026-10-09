@@ -18,11 +18,6 @@ typedef struct {
 static void mg_close(MG *m);
 static int menu_open(void *root);
 static u32 mg_rand(MG *m) { m->rng = m->rng * 1664525u + 1013904223u; return m->rng >> 8; }
-static void mg_num(u16 *g, int x, int y, int v, int sc, uint16_t col) {
-    char d[8]; int n = 0; if (v < 0) v = 0; do { d[n++] = (char)('0' + v % 10); v /= 10; } while (v && n < 7);
-    for (int i = 0; i < n; i++) put(g, x + i * 8 * sc, y, (uint32_t)(uint8_t)d[n - 1 - i], sc, col);
-}
-static int mg_numw(int v) { int n = 1; while (v >= 10) { v /= 10; n++; } return n; }
 static void mg_hud(MG *m, const char *name, int score, int best) {
     u16 *g = m->px; rect(g, 0, 0, MG_W, 28, C(10, 12, 20));
     ptext(g, 4, 8, name, 1, C(255, 210, 90)); mg_num(g, 80, 4, score, 2, C(255, 255, 255));

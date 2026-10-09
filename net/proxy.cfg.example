@@ -1,0 +1,4 @@
+# Optional: copy to proxy.cfg to run the proxy on a PC instead of the phone.
+# host=gw (default) means the tethering gateway, i.e. the phone running the Fit3 Hub app.
+host=gw
+port=8788

@@ -4,12 +4,12 @@
 typedef unsigned char u8; typedef unsigned short u16; typedef unsigned int u32;
 typedef signed char int8_t_;
 #include <stdint.h>
-#ifndef NO_3D
+#ifndef NO_GAMES
 #include "m3d.c"
 #include "rd.c"
 #endif
 #include "kbd.c"
-#ifndef NO_3D
+#ifndef NO_GAMES
 #include "rd_tex.h"
 #endif
 
@@ -71,6 +71,13 @@ typedef signed char int8_t_;
 #define REPLY_PAGE_ROOT (*(void **)0x201160a0)
 #endif
 
+/* ---------------- UI language: follows the watch setting (byte @0x200fafe0 via getter 0x2c212160; 68 = pt-BR, 52 = pt-PT, anything else -> English) ---------------- */
+#ifndef UI_LANG_ID
+#define UI_LANG_ID (((u32 (*)(void))0x2c212161)())
+#endif
+static int ui_pt(void) { u32 id = UI_LANG_ID; return id == 68 || id == 52; }
+#define TR(pt, en) (ui_pt() ? (pt) : (en))
+
 /* ---------------- shared: sample the touch panel ---------------- */
 static int touch_read(int *x, int *y) {
     u8 s[64]; for (int i = 0; i < 64; i++) s[i] = 0;
@@ -89,24 +96,24 @@ static void *make_canvas(void *root, u32 *dsc, u16 *px, void *cb, void *user) {
 }
 
 /* ================= keyboard ================= */
-typedef struct { u32 dsc[4]; Kbd k; u32 seq; int x, y; void *img; u32 *fbuf; void *done, *ctx; } KSt;   /* done != 0: call done(ctx, text) instead of sending a reply */
+typedef struct { u32 dsc[4]; Kbd k; u32 seq; int x, y; void *img; u32 *fbuf; u16 *px; void *done, *ctx; } KSt;   /* done != 0: call done(ctx, text) instead of sending a reply */
 
 static void kbd_event(void *e) {
     int code = EV_CODE(e); KSt *st = (KSt *)EV_USER(e); void *img = EV_TARGET(e);
     if (code == 1 || code == 2) { int x, y; if (touch_read(&x, &y)) { st->x = x; st->y = y; } return; }
     if (code != 7) return;
-    kbd_touch(&st->k, st->x, st->y);
-    if (st->k.state == KBD_EDIT) { kbd_draw(&st->k, (u16 *)st->dsc[2]); INVALIDATE(img); return; }
+    kbd_touch(&st->k, st->x, st->y, TICK_GET());
+    if (st->k.state == KBD_EDIT) { kbd_draw(&st->k, st->px); INVALIDATE(img); return; }
     if (st->k.state == KBD_SEND) { if (st->done) ((void (*)(void *, const char *))st->done)(st->ctx, st->k.buf); else { SEND_REPLY(st->seq, st->k.buf, (u32)st->k.len); MOTOR_ONCE(1, 0); } }
     ADD_FLAG(img, 1); FREE(st->fbuf);
 }
-static int kbd_open(void *root, u32 seq, const u8 *rec) {
+static int kbd_open(void *root, u32 seq, const u8 *rec, const char *init) {
     KSt *st = (KSt *)MALLOC(sizeof(KSt)); if (!st) return 0;
     u32 *fbuf = (u32 *)MALLOC(KBD_W * KBD_H * 2 + 8); if (!fbuf) { FREE(st); return 0; }
-    kbd_init(&st->k, "");
+    kbd_init(&st->k, init); st->k.en = (uint8_t)!ui_pt();
     if (rec) kbd_set_msg(&st->k, (const char *)rec + 0x120 + 0x119, (const char *)rec + 0x120 + 0x35c);   /* title / body inside the notice record */
     st->seq = seq; st->x = st->y = 0; st->fbuf = fbuf; st->done = 0; st->ctx = 0;
-    u16 *px = (u16 *)((u8 *)fbuf + 8); kbd_draw(&st->k, px);
+    u16 *px = (u16 *)((u8 *)fbuf + 8); st->px = px; kbd_draw(&st->k, px);
     st->img = make_canvas(root, st->dsc, px, (void *)kbd_event, st);
     return 1;
 }
@@ -114,16 +121,15 @@ static int kbd_open(void *root, u32 seq, const u8 *rec) {
 static int kbd_open_cb(void *root, const char *title, const char *hint, void *done, void *ctx) {
     KSt *st = (KSt *)MALLOC(sizeof(KSt)); if (!st) return 0;
     u32 *fbuf = (u32 *)MALLOC(KBD_W * KBD_H * 2 + 8); if (!fbuf) { FREE(st); return 0; }
-    kbd_init(&st->k, ""); kbd_set_msg(&st->k, title, hint); st->seq = 0; st->x = st->y = 0; st->fbuf = fbuf; st->done = done; st->ctx = ctx;
-    u16 *px = (u16 *)((u8 *)fbuf + 8); kbd_draw(&st->k, px);
+    kbd_init(&st->k, ""); st->k.en = (uint8_t)!ui_pt(); kbd_set_msg(&st->k, title, hint); st->seq = 0; st->x = st->y = 0; st->fbuf = fbuf; st->done = done; st->ctx = ctx;
+    u16 *px = (u16 *)((u8 *)fbuf + 8); st->px = px; kbd_draw(&st->k, px);
     st->img = make_canvas(root, st->dsc, px, (void *)kbd_event, st);
     return 1;
 }
 
-#if defined(NO_3D)
-#define GAME_LABEL "3D (off)"
-static int game_open(void *root, int from_menu) { (void)root; (void)from_menu; return 0; }    /* 3D game not built: the menu buzzes and reopens */
-#elif defined(GAME_CS)
+static int menu_open(void *root);
+#ifndef NO_GAMES
+#ifdef GAME_CS
 #define RW 128
 #define RH 201
 #define GAME_LABEL "FPS CS"
@@ -208,20 +214,46 @@ static int game_open(void *root, int from_menu) {
 }
 
 #endif
+#endif /* NO_GAMES */
 
+#include "common.inc.c"
+#ifndef NO_GAMES
+#include "doom.inc.c"
+#endif
+#if !defined(NO_GAMES) || defined(MINI_GAMES)           /* Snake, Flappy, Tetris, 2048: small, so they fit next to the Internet app */
 #include "minigames.inc.c"
+#define HAVE_MINIGAMES 1
+#endif
 #include "webreader.inc.c"
 #include "browser.inc.c"
 #include "menu.inc.c"
 
 /* ================= hook ================= */
+/* Quick-reply tap hook. By default EVERY quick reply opens the keyboard, pre-filled with that reply's text (edit it, or clear it and type; OK sends).
+ * The markers "..." / "…" open it empty. Build with -DKBD_MARKER_ONLY to restore the old behaviour (only the markers open the keyboard). */
 int kbd_hook(u32 seq, const char *text, u32 len, const u8 *rec) {
     int dots = len == 3 && text[0] == '.' && text[1] == '.' && text[2] == '.';
     int ell = len == 3 && (u8)text[0] == 0xE2 && (u8)text[1] == 0x80 && (u8)text[2] == 0xA6;
+#ifdef NO_GAMES
+    int game = 0;
+#else
     int game = len == 2 && (text[0] == '3') && (text[1] == 'd' || text[1] == 'D');
-    if (!dots && !ell && !game) return 0;                               /* normal quick reply: send as is */
-    void *root = REPLY_PAGE_ROOT; if (!root) { MOTOR_ONCE(1, 0); return 1; }
-    int ok = game ? game_open(root, 0) : kbd_open(root, seq, rec);
+#endif
+    int marker = dots || ell || game;
+#ifdef KBD_MARKER_ONLY
+    if (!marker) return 0;                                              /* normal quick reply: send as is */
+#endif
+    void *root = REPLY_PAGE_ROOT;
+    if (!root) { if (marker) MOTOR_ONCE(1, 0); return marker; }         /* no page to draw on: a real quick reply is still sent normally */
+    char init[KBD_MAX + 4]; u32 n = 0;
+    if (!marker && text && len <= KBD_MAX) { while (n < len) { init[n] = text[n]; n++; } }
+    init[n] = 0;
+#ifdef NO_GAMES
+    int ok = kbd_open(root, seq, rec, init);
+#else
+    int ok = game ? game_open(root, 0) : kbd_open(root, seq, rec, init);
+#endif
     MOTOR_ONCE(ok ? 69 : 5, 0);
+    if (!ok && !marker) return 0;                                       /* out of memory: fall back to sending the quick reply */
     return 1;
 }
