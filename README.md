@@ -1,7 +1,7 @@
 # fit3-mods
 
 Unofficial tools and code for the **Samsung Galaxy Fit3 (SM-R390), firmware R390XXU0AZA3**. Not affiliated with Samsung.
-They inject small apps into the watch's main firmware image and repackage it for the fit3-flasher web installer
+They inject small apps into the watch's main firmware image and repackage it for the [fit3-flasher](https://github.com/yuriyurin/fit3-flasher) web installer
 (a static page that sends the firmware to the watch over Web Serial).
 
 > **Warning.** Flashing modified firmware can **brick your watch** and voids the warranty. Do it at your own risk, with a charged battery and the
@@ -35,7 +35,7 @@ and consumed by the GUI-thread timer. The watch finds the proxy at the DHCP gate
 
 ## Requirements (Windows)
 Python 3.10+ (`pip install capstone`), Node 18+, the [Arm GNU Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads)
-(`arm-none-eabi-*`), your own `stock-aza3.bin` and a copy of the flasher project (for `validation-worker.js`).
+(`arm-none-eabi-*`), your own `stock-aza3.bin` and a copy of the [fit3-flasher](https://github.com/yuriyurin/fit3-flasher) project (for `validation-worker.js`).
 
 ```
 set ARM_GNU_BIN=C:\Program Files (x86)\Arm GNU Toolchain arm-none-eabi\14.2 rel1\bin
@@ -78,6 +78,15 @@ No Gradle: `javac -> d8 -> aapt2 -> zipalign -> apksigner`. The watch actions us
 * **Verified only on a PC (simulation):** the launcher, mini games, T9 pad details, the whole network stack, the proxy, the Groq flow and the Android app's server.
 * **Not verified on hardware:** the Bluetooth glue of the Internet app (L2CAP event codes beyond open/close, packet buffer layout, thread-safety, whether the phone accepts
   the PANU's MAC), the Android app's UI and its watch actions, and the firmware's `/user/web_*` file access.
+
+## Credits
+* **[fit3-flasher](https://github.com/yuriyurin/fit3-flasher) by [yuriyurin](https://github.com/yuriyurin)**: the web installer this project builds on. Its Bluetooth serial protocol (write/read a file, start the OTA) is re-implemented
+  here in `webbridge/bridge.html` and in the Fit3 Hub app, and its package validator is run by `tools/val.mjs` on every package. Its code is **not** included in this repository: get your own copy from there.
+* **Samsung** owns the firmware and the Galaxy Fit3 name. This project is unofficial and has no affiliation with Samsung.
+* [LVGL](https://lvgl.io/) is the UI toolkit of the watch firmware; we only call into the copy that is already in it.
+* [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) (ChaCha20-Poly1305) and the Bluetooth PAN / BNEP specifications, which `net/` implements from scratch.
+* [Groq](https://groq.com/) provides the API behind the AI chat; you bring your own key.
+* Developed with the help of [Claude Code](https://claude.com/claude-code) (Anthropic).
 
 ## License
 No license has been chosen yet, so by default all rights are reserved. Open an issue if you need a license for a specific use.
