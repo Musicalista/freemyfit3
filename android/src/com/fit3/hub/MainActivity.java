@@ -109,6 +109,7 @@ public final class MainActivity extends Activity {
         LinearLayout stc = new LinearLayout(this); stc.setOrientation(LinearLayout.VERTICAL);
         statusText = label("", 17, 0xFFFFFFFF, true); statusSub = label("", 13, 0xCCFFFFFF, false); stc.addView(statusText); stc.addView(statusSub); st.addView(stc);
         head.addView(st); col.addView(head, lp(-1, -2, 0, 0, 0, 12));
+        { LinearLayout wcard = new LinearLayout(this); wcard.setPadding(dp(16), dp(12), dp(16), dp(12)); wcard.setBackground(shape(dark ? 0xFF3A1E1E : 0xFFFDECEA, 18)); wcard.addView(label(Hub.t("Só o Galaxy Fit3 SM-R390 com o firmware R390XXU0AZA3 é suportado. Outros modelos, variantes regionais e outras versões NÃO são suportados e não foram testados: podem entrar em ciclo de reinicialização ou ficar inutilizáveis.", "Only the Galaxy Fit3 SM-R390 running firmware R390XXU0AZA3 is supported. Other models, regional variants and other versions are NOT supported and have not been tested: they can end up in a reboot loop or become unusable."), 13, 0xFFE5534B, true)); col.addView(wcard, lp(-1, -2, 0, 0, 0, 12)); }
 
         // ---- proxy
         LinearLayout proxy = card(col, Hub.t("Proxy do relógio", "Watch proxy"), Hub.t("O relógio usa a ancoragem Bluetooth deste celular para navegar.", "The watch uses this phone's Bluetooth tethering to browse."));
@@ -217,6 +218,7 @@ public final class MainActivity extends Activity {
     private void askPermissions() {
         List<String> need = new ArrayList<>();
         if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) need.add(Manifest.permission.BLUETOOTH_CONNECT);
+        if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) need.add(Manifest.permission.BLUETOOTH_SCAN);
         if (Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) need.add(Manifest.permission.CALL_PHONE);
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) need.add(Manifest.permission.POST_NOTIFICATIONS);
         if (!need.isEmpty()) requestPermissions(need.toArray(new String[0]), 7);
