@@ -75,6 +75,13 @@ int main(int argc, char **argv) {
     tap(a, 236, 10); tap(a, 60, 190); frames(a, 2); check("third app (dice) runs", a->running); tap(a, 128, 250); frames(a, 30); dump(a->px, "as_dice.ppm"); tap(a, 236, 10);
     { F3Time t; a->api.time(&t); check("api.time reads the RTC layout (2026-10-09 13:07:42, wday 5)", t.year == 2026 && t.month == 10 && t.day == 9 && t.hour == 13 && t.min == 7 && t.sec == 42 && t.wday == 5);
       check("api.battery returns the percent (87)", a->api.battery() == 87); fake_bat = 250; check("api.battery clamps to 100", a->api.battery() == 100); fake_bat = 87; }
+    { char ip[400], orig[6000]; snprintf(ip, sizeof ip, "%s/index.txt", appdir); FILE *f = fopen(ip, "rb"); size_t on = fread(orig, 1, sizeof orig - 1, f); fclose(f);
+      char line[700]; int n = snprintf(line, sizeof line, "hello;F8D8B0;A85A20;Ola;Hello;"); for (int i = 0; i < 128; i++) n += snprintf(line + n, sizeof line - (size_t)n, "%02X", i == 0 ? 0xA5 : i == 127 ? 0x01 : 0); snprintf(line + n, sizeof line - (size_t)n, "\nsnake;BFEFC4;1E7A3A;Snake;Snake;12345\npaint;D0F0E0;208050;Pintar;Paint\n");
+      f = fopen(ip, "wb"); fputs(line, f); fclose(f); as_read_index(a);
+      check("index with an icon: 3 apps read, the first has a 32x32 icon (bytes A5 .. 01)", a->napps == 3 && a->hasico[0] && a->ico[0][0] == 0xA5 && a->ico[0][127] == 0x01);
+      check("a malformed icon field (too short) is ignored, the app is still listed; no field at all is fine", !a->hasico[1] && !a->hasico[2] && !strcmp(a->id[1], "snake") && !strcmp(a->nen[1], "Snake"));
+      as_draw_list(a); { int x, y, w, h; as_tile_rect(0, &x, &y, &w, &h); int ox = x + w / 2 - 16, oy = y + 16; check("the icon bit 0 of row 0 is drawn in the tile's background colour; a clear bit keeps the tile colour", a->px[oy * KBD_W + ox] == a->bg[0] && a->px[oy * KBD_W + ox + 1] != a->bg[0]); }
+      f = fopen(ip, "wb"); fwrite(orig, 1, on, f); fclose(f); as_read_index(a); }
     /* corrupt files must be refused */
     { char p[400]; unsigned char buf[2000]; snprintf(p, sizeof p, "%s/hello.f3a", appdir); FILE *f = fopen(p, "rb"); size_t n = fread(buf, 1, sizeof buf, f); fclose(f);
       buf[100] ^= 1; f = fopen(p, "wb"); fwrite(buf, 1, n, f); fclose(f); a->err = as_load(a, 0); check("bit flip in the image -> refused (error 2)", a->err == 2 && !a->app);

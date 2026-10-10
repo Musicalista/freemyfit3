@@ -1,6 +1,6 @@
 /* ================= "Meus apps": an app store client for the watch (original code) =================
  * Apps are small native programs (apps/f3app.h, built with apps/appcc.py) kept as files in /user/apps/<id>.f3a. The list lives in /user/apps/index.txt, one line per app:
- *     id;BGRRGGBB;FGRRGGBB;Name in Portuguese;Name in English        (colours of the tile as RRGGBB hex)
+ *     id;BGRRGGBB;FGRRGGBB;Name in Portuguese;Name in English[;icon]  (colours of the tile as RRGGBB hex; the optional icon is 256 hex characters = a 32x32 one-bit picture, 4 bytes per row, MSB left, drawn in the BG colour on the FG tile)
  * Fit3 Manager (the PC program) writes both, so apps are installed in seconds without reflashing the firmware. This file lists the apps, loads the chosen one into a RAM block
  * (checks magic/size/CRC32, applies the relocation table), calls its f3app_main() and then its tick() every 33 ms. The app draws on a 256x402 canvas; we draw the X button on top.
  * NOTE: it runs code that was copied into RAM: if the watch refuses to execute from RAM the app crashes (the watch reboots); nothing is written to flash.
@@ -25,7 +25,7 @@
 #define AS_INDEX "/user/apps/index.txt"
 typedef struct {
     u32 dsc[4]; u32 *cvblk; u16 *px; void *root, *img, *timer; int from_menu, running, page, dirty, pressed, x, y, tap, napps, err;
-    char id[AS_MAX][14], npt[AS_MAX][18], nen[AS_MAX][18]; u16 bg[AS_MAX], fg[AS_MAX]; int cur;
+    char id[AS_MAX][14], npt[AS_MAX][18], nen[AS_MAX][18]; u16 bg[AS_MAX], fg[AS_MAX]; int cur; u8 ico[AS_MAX][128], hasico[AS_MAX];
     u8 *code; F3App *app; F3Api api;
 } AS;
 
@@ -57,11 +57,12 @@ static int as_hexv(char c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' &&
 static u16 as_rgb(const char *h) { int r = as_hexv(h[0]) * 16 + as_hexv(h[1]), g = as_hexv(h[2]) * 16 + as_hexv(h[3]), b = as_hexv(h[4]) * 16 + as_hexv(h[5]); return C(r, g, b); }
 static void as_read_index(AS *a) {
     a->napps = 0; int fd = FS_OPEN(AS_INDEX, "r"); if (fd < 0) return;
-    char buf[1400]; int n = 0, r; while (n < (int)sizeof buf - 1 && (r = FS_READ(fd, buf + n, (u32)(sizeof buf - 1 - n))) > 0) n += r; FS_CLOSE(fd); buf[n] = 0;
+    const int cap = 4600; char *buf = (char *)MALLOC((u32)cap); if (!buf) { FS_CLOSE(fd); return; }
+    int n = 0, r; while (n < cap - 1 && (r = FS_READ(fd, buf + n, (u32)(cap - 1 - n))) > 0) n += r; FS_CLOSE(fd); buf[n] = 0;
     int i = 0;
     while (i < n && a->napps < AS_MAX) {
-        char *f[5]; int nf = 0, ok = 1; f[nf++] = buf + i;
-        while (i < n && buf[i] != '\n') { if (buf[i] == ';' && nf < 5) { buf[i] = 0; f[nf++] = buf + i + 1; } else if (buf[i] == '\r') buf[i] = 0; i++; }
+        char *f[6]; int nf = 0, ok = 1; f[nf++] = buf + i; f[5] = buf + n;
+        while (i < n && buf[i] != '\n') { if (buf[i] == ';' && nf < 6) { buf[i] = 0; f[nf++] = buf + i + 1; } else if (buf[i] == '\r') buf[i] = 0; i++; }
         if (i < n) buf[i++] = 0;
         if (nf < 5) continue; int k = a->napps;
         for (int j = 0; f[0][j]; j++) if (j > 11 || !((f[0][j] >= 'a' && f[0][j] <= 'z') || (f[0][j] >= '0' && f[0][j] <= '9') || f[0][j] == '_' || f[0][j] == '-')) ok = 0;     /* ids become file names: keep them plain */
@@ -69,8 +70,11 @@ static void as_read_index(AS *a) {
         { int j = 0; while (f[0][j]) { a->id[k][j] = f[0][j]; j++; } a->id[k][j] = 0; }
         a->bg[k] = as_rgb(f[1]); a->fg[k] = as_rgb(f[2]);
         { int j = 0; while (f[3][j] && j < 17) { a->npt[k][j] = f[3][j]; j++; } a->npt[k][j] = 0; j = 0; while (f[4][j] && j < 17) { a->nen[k][j] = f[4][j]; j++; } a->nen[k][j] = 0; }
+        a->hasico[k] = 0;
+        if (nf >= 6) { int j = 0; for (; j < 256 && ((f[5][j] >= '0' && f[5][j] <= '9') || (f[5][j] >= 'A' && f[5][j] <= 'F') || (f[5][j] >= 'a' && f[5][j] <= 'f')); j++) ; if (j == 256) { for (int q = 0; q < 128; q++) a->ico[k][q] = (u8)(as_hexv(f[5][2 * q]) * 16 + as_hexv(f[5][2 * q + 1])); a->hasico[k] = 1; } }
         a->napps++;
     }
+    FREE(buf);
 }
 
 /* ---------------- loading ---------------- */
@@ -114,7 +118,8 @@ static void as_draw_list(AS *a) {
     if (!a->napps) { draw_wrapped(g, TR("Nenhum app instalado.\n\nNo PC, abra o Fit3 Manager, conecte o relogio e instale apps pela Loja de apps (aba Apps leves).", "No apps installed.\n\nOn the PC, open Fit3 Manager, connect the watch and install apps from the app store (Light apps tab)."), 14, 60, 1, 28, 12, 0, P_TEXT, 0); return; }
     for (int j = 0; j < 6; j++) {
         int i = a->page * 6 + j; if (i >= a->napps) break; int x, y, w, h; as_tile_rect(i, &x, &y, &w, &h);
-        card(g, x, y, w, h, 28, a->bg[i]); rrect(g, x + w / 2 - 18, y + 14, 36, 36, 10, a->fg[i]); { const char *s = TR(a->npt[i], a->nen[i]); char ini[2] = { s[0], 0 }; ctext(g, x + w / 2, y + 22, ini, 2, a->bg[i]);
+        card(g, x, y, w, h, 28, a->bg[i]); rrect(g, x + w / 2 - 18, y + 14, 36, 36, 10, a->fg[i]); { const char *s = TR(a->npt[i], a->nen[i]); char ini[2] = { s[0], 0 };
+          if (a->hasico[i]) { int ox = x + w / 2 - 16, oy = y + 16; for (int r = 0; r < 32; r++) for (int c = 0; c < 32; c++) if (a->ico[i][r * 4 + c / 8] & (0x80 >> (c & 7))) g[(oy + r) * KBD_W + ox + c] = a->bg[i]; } else ctext(g, x + w / 2, y + 22, ini, 2, a->bg[i]);
           int ln = 0; while (s[ln]) ln++; ctext(g, x + w / 2, y + h - (ln > 7 ? 24 : 30), s, ln > 7 ? 1 : 2, a->fg[i]); }
     }
     if (a->napps > 6) { card(g, 10, 358, 76, 34, 17, a->page > 0 ? P_CARD : C(236, 230, 244)); ctext(g, 48, 361, "<", 3, P_ACCENT); card(g, 170, 358, 76, 34, 17, (a->page + 1) * 6 < a->napps ? P_CARD : C(236, 230, 244)); ctext(g, 208, 361, ">", 3, P_ACCENT); }
