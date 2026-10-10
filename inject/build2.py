@@ -1,4 +1,4 @@
-"""build2.py <name> [--net] [--marker-only]: build the full 'apps' firmware (reply keyboard + 3D game + Settings 'Apps extras' menu + relabelled language packs).
+"""build2.py <name>: build the full 'apps' firmware (reply keyboard + 3D game + Settings 'Apps extras' menu + relabelled language packs).
 Compiles apps_entry.s + fit3_apps.c into the free area of the AZA3 main image, retargets the hook `bl`s, patches language packs,
 repacks the FWD package, validates it with the flasher's own validator and copies it to Downloads."""
 import subprocess, sys, os, shutil, struct
@@ -6,22 +6,29 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from inject import enc_bl, BASE, FREE_START, FREE_LEN
 from capstone import Cs, CS_ARCH_ARM, CS_MODE_THUMB
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); TOOLS = os.path.join(ROOT, "tools"); WORK = os.path.join(ROOT, "work"); DIST = os.path.join(ROOT, "dist")
-A = os.environ.get("ARM_GNU_BIN", r"C:\Program Files (x86)\Arm GNU Toolchain arm-none-eabi\14.2 rel1\bin").rstrip("\\") + "\\"
-STOCK = os.environ.get("FIT3_STOCK", os.path.join(ROOT, "firmware", "stock-aza3.bin"))
+A = r"C:\Program Files (x86)\Arm GNU Toolchain arm-none-eabi\14.2 rel1\bin" + "\\"
 H = os.path.dirname(os.path.abspath(__file__))
+S = r"C:\Users\Usuario\AppData\Local\Temp\claude\C--Users-Usuario--local-bin\f8f42c15-abaf-4f79-83bd-66ba6f1cc8cc\scratchpad" + "\\"
 CAVE = 0x2c3a0524
 HOOKS = [(0x2c1d0802, 'cave', 0x2c112f58),        # quick-reply click handler: send_reply -> keyboard / game
          (0x2c1b76a0, 'cave_menu', 0x2c2974f8)]   # settings tutorials page: log call -> schedules the Apps extras menu
 LANG = [68, 52, 30, 13]
 name = sys.argv[1] if len(sys.argv) > 1 else 'apps'
-DEFS = ['-DNO_DOOM'] if '--blocks' in sys.argv else ['-DNO_GAMES', '-DMINI_GAMES']                      # third-party games are not part of this repository
-KBD_ONLY = '--kbd-only' in sys.argv                                  # only the reply keyboard: no launcher, games, readers or relabelled settings entry
+DEFS = ['-DGAME_CS'] if '--cs' in sys.argv else []
+if '--nogames' in sys.argv: DEFS.append('-DNO_GAMES')            # no games: frees ~20 KB of the flash cave
+if '--minigames' in sys.argv: DEFS.append('-DMINI_GAMES')              # with --nogames: keep only Snake/Flappy/Tetris/2048
+SPP_ONLY = any(f in sys.argv for f in ('--spp-only', '--spp-access-only', '--spp-multi-only'))                                  # stock image + only the Bluetooth-serial patch (no injected code at all)
+SPP_ACCESS = any(f in sys.argv for f in ('--spp', '--spp-only', '--spp-access', '--spp-access-only'))   # always discoverable + connectable
+SPP_MULTI = any(f in sys.argv for f in ('--spp', '--spp-only', '--spp-multi', '--spp-multi-only'))       # serial port accepts a second client
+SPP = SPP_ACCESS or SPP_MULTI                                # Bluetooth serial (flasher service, RFCOMM channel 29) accepts a connection even if another device holds it
+KBD_ONLY = SPP_ONLY or '--kbd-only' in sys.argv                                  # only the reply keyboard: no launcher, games, readers or relabelled settings entry
 if KBD_ONLY: DEFS += ['-DNO_GAMES', '-DNO_WEB', '-DKBD_ONLY']; HOOKS = [h for h in HOOKS if h[1] != 'cave_menu']
 if '--games2' in sys.argv: DEFS.append('-DWITH_GAMES2')               # Pong, tic-tac-toe, Sudoku, Memory
+if '--appsys' in sys.argv: DEFS.append('-DWITH_APPSYS')                 # "Meus apps": loads .f3a apps installed by Fit3 Manager
 if '--tools' in sys.argv: DEFS.append('-DWITH_TOOLS')                 # utilities tile (calculator, stopwatch, flashlight, notes, counter, dice)
 if '--gb' in sys.argv: DEFS.append('-DWITH_GB')                       # Game Boy emulator tile
 if '--nodoom' in sys.argv: DEFS.append('-DNO_DOOM')                  # leave the Doom-style game out
+if '--norecovery' in sys.argv: DEFS.append('-DNO_RECOVERY')              # leave the recovery screen out of Apps extras
 if '--noweb' in sys.argv: DEFS.append('-DNO_WEB')                    # no Web/Text readers (and no Internet/AI): fully offline build
 if '--marker-only' in sys.argv: DEFS.append('-DKBD_MARKER_ONLY')  # keyboard only for the "..." quick reply (old behaviour)
 if '--direct' in sys.argv: DEFS += ['-DNET_APP', '-DNET_DIRECT_ONLY', '-DNET_NO_SC', '-DNO_PCBRIDGE']   # Internet straight over the Bluetooth tethering: no proxy, no phone app, no PC bridge
@@ -45,10 +52,9 @@ def run(*a):
     if r.returncode: print(r.stdout + r.stderr); raise SystemExit('FAILED: ' + ' '.join(a[:2]))
     return r.stdout
 
-if not os.path.exists(os.path.join(ROOT, 'kbd', 'kbd_font.h')): run(sys.executable, os.path.join(ROOT, 'kbd', 'make_font.py'))
 run(A + 'arm-none-eabi-as.exe', '-mcpu=cortex-m4', '-mthumb', '-o', 'apps_entry.o', 'apps_entry.s')
 run(*([A + 'arm-none-eabi-gcc.exe', '-mcpu=cortex-m4', '-mfpu=fpv4-sp-d16', '-mfloat-abi=hard', '-mthumb', '-Os', '-fno-math-errno', '-ffreestanding', '-fno-builtin',
-    '-fno-tree-loop-distribute-patterns', '-fno-stack-protector', '-I', '../kbd', '-I', '../src', '-I', '../net', '-DM3D_NO_BMP'] + DEFS + ['-c', 'fit3_apps.c', '-o', 'apps.o']))
+    '-fno-tree-loop-distribute-patterns', '-fno-stack-protector', '-I', '../kbd', '-I', '../src', '-I', '../net', '-I', '../apps', '-DM3D_NO_BMP'] + DEFS + ['-c', 'fit3_apps.c', '-o', 'apps.o']))
 run(A + 'arm-none-eabi-ld.exe', '-Ttext=0x%x' % CAVE, '-e', 'cave', '-o', 'apps.elf', 'apps_entry.o', 'apps.o')
 run(A + 'arm-none-eabi-objcopy.exe', '-O', 'binary', 'apps.elf', 'apps.bin')
 for ln in run(A + 'arm-none-eabi-size.exe', '-A', 'apps.elf').splitlines():
@@ -65,26 +71,34 @@ assert syms['cave'] == CAVE
 print('blob bytes: %d of %d free (%.1f%%)' % (len(blob), FREE_LEN, 100.0 * len(blob) / FREE_LEN))
 assert off % 4 == 0 and FREE_START <= off and off + len(blob) <= FREE_START + FREE_LEN, 'blob does not fit the free area'
 
-run(sys.executable, '-I', os.path.join(TOOLS, 'fwd.py'), STOCK, os.path.join(WORK, 'out')) if not os.path.isdir(os.path.join(WORK, 'out')) else None
-import glob; MAIN = glob.glob(os.path.join(WORK, 'out', '*_k1_user__ota__app__*.bin'))[0]
-img = bytearray(open(MAIN, 'rb').read())
+img = bytearray(open(S + r'out\02_k1_user__ota__app__best1502x_b319_user.bin', 'rb').read())
 assert all(b == 0 for b in img[off:off + len(blob)]), 'cave area not empty'
-img[off:off + len(blob)] = blob
+if not SPP_ONLY: img[off:off + len(blob)] = blob
 md = Cs(CS_ARCH_ARM, CS_MODE_THUMB)
-for hook, sym, orig in HOOKS:
+for hook, sym, orig in ([] if SPP_ONLY else HOOKS):
     ins = list(md.disasm(bytes(img[hook - BASE:hook - BASE + 4]), hook))
     assert ins and ins[0].mnemonic == 'bl' and int(ins[0].op_str.lstrip('#'), 16) == orig, 'hook %#x is not bl %#x' % (hook, orig)
     img[hook - BASE:hook - BASE + 4] = enc_bl(hook, syms[sym])
     chk = list(md.disasm(bytes(img[hook - BASE:hook - BASE + 4]), hook))[0]
     assert int(chk.op_str.lstrip('#'), 16) == syms[sym]
     print('hook %#x: bl %#x -> bl %#x (%s)' % (hook, orig, syms[sym], sym))
+if SPP_MULTI:
+    # SPP server registration (0x2c227f58) calls btif_spp_listen(0x1d, multi_device_supp=r1, ...) with `mov r1, r2` (r2 = 0): the RFCOMM connect indication then rejects a
+    # connection when another device already holds a DLC on that port ("rfcomm find same dlc"). `movs r1, #1` marks the port multi-device: always accepted.
+    a = 0x2c227f7a - BASE; assert bytes(img[a:a + 2]) == bytes.fromhex('1146') and bytes(img[a - 2:a]) == bytes.fromhex('1d20'), 'SPP patch site differs'
+    img[a:a + 2] = bytes.fromhex('0121'); print('SPP patch: 0x2c227f7a mov r1,r2 -> movs r1,#1')
+if SPP_ACCESS:
+    # Access mode: every change (setup screen = 3, after pairing = connectable-only/off) goes through 0x2c23381c(mode), which posts the mode to the BT thread.
+    # `mov r4, r0` -> `movs r4, #3`: always BTIF_BAM_GENERAL_ACCESSIBLE (discoverable + connectable), so the serial service stays reachable after the setup screen.
+    a = 0x2c233820 - BASE; assert bytes(img[a:a + 2]) == bytes.fromhex('0446') and bytes(img[a - 2:a]) == bytes.fromhex('0e4b'), 'access-mode patch site differs'
+    img[a:a + 2] = bytes.fromhex('0324'); print('SPP patch: 0x2c233820 mov r4,r0 -> movs r4,#3 (always discoverable + connectable)')
 open('main_%s.bin' % name, 'wb').write(img)
 
 if not KBD_ONLY: run(sys.executable, '-I', 'patch_lang.py')
 out = os.path.join(H, 'fit3-%s.bin' % name)
-args = [sys.executable, '-I', os.path.join(TOOLS, 'repack.py'), STOCK, out, '2=main_%s.bin' % name]
+args = [sys.executable, '-I', S + 'repack.py', r'C:\Users\Usuario\Downloads\fit3-flasher-main\fit3-flasher-main\firmware\stock-aza3.bin', out, '2=main_%s.bin' % name]
 if not KBD_ONLY: args += ['%d=lang\\%d.bin' % (i, i) for i in LANG if os.path.exists('lang\\%d.bin' % i)]
 run(*args)
-print(subprocess.run(['node', os.path.join(TOOLS, 'val.mjs'), out], capture_output=True, text=True).stdout.strip())
-os.makedirs(DIST, exist_ok=True); shutil.copy(out, os.path.join(DIST, 'fit3-%s.bin' % name))
-print('-> dist/fit3-%s.bin (main image size: %d bytes of 0x380000 validator cap)' % (name, len(img)))
+print(subprocess.run(['node', 'val.mjs', out], capture_output=True, text=True).stdout.strip())
+shutil.copy(out, r'C:\Users\Usuario\Downloads' + '\\' + 'fit3-%s.bin' % name)
+print('-> Downloads/fit3-%s.bin (main image size unchanged: %d bytes of 0x380000 validator cap)' % (name, len(img)))

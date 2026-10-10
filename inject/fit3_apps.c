@@ -152,6 +152,14 @@ static int menu_open(void *root);
 #include "minigames.inc.c"
 #define HAVE_MINIGAMES 1
 #endif
+#if !defined(KBD_ONLY) && !defined(NO_RECOVERY)         /* recovery screen in "Apps extras": safe mode, clear the apps list / scores, how to restore (before appsys: it checks the safe-mode flag) */
+#include "recovery.inc.c"
+#define HAVE_RECOVERY 1
+#endif
+#ifdef WITH_APPSYS                                     /* "Meus apps": apps installed as files by Fit3 Manager (the app store) */
+#include "appsys.inc.c"
+#define HAVE_APPSYS 1
+#endif
 #ifdef WITH_TOOLS                                      /* utilities: calculator, stopwatch/timer, flashlight, notes, counter, dice */
 #include "tools.inc.c"
 #define HAVE_TOOLS 1
