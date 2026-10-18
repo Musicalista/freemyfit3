@@ -1,12 +1,25 @@
-# fit3-mods
+# FreeMyFit3 - Custom Firmware for Galaxy Fit 3 (SM-R390)
+
+I'm here! First, to be clear, I would never have created this project if it weren't for [yuriyurin's GitHub: https://github.com/yuriyurin/fit3-flasher](https://github.com/yuriyurin/fit3-flasher). Huge thanks to yuriyurin — his browser-only flasher is the foundation this project builds on.
+
+> **⚠️ Work in Progress — Read before installing**
+> This project is under active development. At the moment, I don't recommend installing it unless you are sure you want to keep the modified firmware. If you revert to the factory firmware, it will no longer connect to the phone.
+
+**GitHub:** https://github.com/Musicalista/freemyfit3
+
+**Features:**
+- T9 touch-sensitive keyboard (with accents: ç, á, é, ã, õ, etc.)
+- "Extra Apps" launcher
+- Game Boy / Game Boy Color emulator (Fit3Boy)
+
+More features to be added in the future. This is just the beginning!
+
+---
 
 Unofficial tools and code for the **Samsung Galaxy Fit3 (SM-R390), firmware R390XXU0AZA3**. Not affiliated with Samsung.
-They inject small apps into the watch's main firmware image and repackage it for the [fit3-flasher](https://github.com/yuriyurin/fit3-flasher) web installer
-(a static page that sends the firmware to the watch over Web Serial).
+They inject small apps into the watch's main firmware image and repackage it for the [fit3-flasher](https://github.com/yuriyurin/fit3-flasher) web installer (a static page that sends the firmware to the watch over Web Serial).
 
-> **Warning.** Flashing modified firmware can **brick your watch** and voids the warranty. Do it at your own risk, with a charged battery and the
-> original `stock-aza3.bin` at hand. **This repository contains no Samsung firmware**, and you must not publish the packages you build
-> (they contain Samsung code): build your own from **your** `stock-aza3.bin`.
+> **Warning.** Flashing modified firmware can **brick your watch** and voids the warranty. Do it at your own risk, with a charged battery and the original `stock-aza3.bin` at hand. **This repository contains no Samsung firmware**, and you must not publish the packages you build (they contain Samsung code): build your own from **your** `stock-aza3.bin`.
 
 ## ⚠️ Read this first: supported device and risk of reboot loops
 
