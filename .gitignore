@@ -1,0 +1,72 @@
+# Build artifacts
+*.o
+*.elf
+*.bin
+*.f3a
+*.pak
+*.zip
+*.ppm
+*.png
+
+# Toolchain outputs
+apps/dist/
+jvm/dist/
+apps/__pycache__/
+__pycache__/
+
+# Temporary / scratch
+*.tmp
+*.bak
+*.idsig
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Analise / relatorio / PoC (nao subir - nao prejudicar a Samsung)
+analysis_report.md
+samsung_submission_package/
+samsung_submission_package.zip
+galaxy_fit3_poc_submission.zip
+ticket_text.txt
+poc_*.py
+poc_output/
+
+# Firmwares stock / release (nao versionar binarios grandes)
+R390XXU0AWIO_FULL.bin
+stock-aza3.bin
+firmware_fit3_tudo_em_um.zip
+firmware_fit3_j2me_completo.zip
+Downloads/*.bin
+
+# Ferramentas de flash / injeção / exploit (nao subir)
+webflasher/app.js
+webflasher/_test_lib.mjs
+webflasher/test_node.mjs
+webflasher/fw/
+webflasher/fit3mods-signing.pub.spki.der
+inject/
+fit3plugin_MOD_FLASHER.apk
+Fit3Flasher_EDICAO_MACHO.apk
+manager-android/
+flasher-android/
+webbridge/server.js
+webbridge/proxy.js
+webbridge/groq.js
+webbridge/groq.key
+webbridge/proxy.key
+webbridge/patch_bridge.py
+webbridge/patch_pc_control.py
+webbridge/test_pc_control.js
+webbridge/start-bridge.bat
+webbridge/start-proxy.bat
+winmanager/
+!winmanager/sdk/
+!winmanager/sdk/**
+
+# Firmware flasher executavel
+host.exe
+rd_host.exe
+vmhost.exe

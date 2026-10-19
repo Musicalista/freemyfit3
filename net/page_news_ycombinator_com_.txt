@@ -1,0 +1,140 @@
+W1
+S1
+Uhttps://news.ycombinator.com
+THacker News
+Hacker News[1]new[2] | past[3] | comments[4] | ask[5] | show[6] | jobs[7] | submit[8] login[9]
+1.
+Deno Is Joining Cloudflare[10] (deno.com[11])
+524 points by ilreb[12] 2 hours ago[13] | hide[14] | 278 comments[13]
+2.
+Our $445M Series D[15] (oxide.computer[16])
+281 points by ahlCVA[17] 2 hours ago[18] | hide[19] | 103 comments[18]
+3.
+Let your AI agents paint big arrows, boxes and text on your screen[20] (github.com/franzenzenhofer[21])
+239 points by franze[22] 4 hours ago[23] | hide[24] | 95 comments[23]
+4.
+I'm in a Meeting[25] (iminafleeting.com[26])
+344 points by splintersio[27] 6 hours ago[28] | hide[29] | 129 comments[28]
+5.
+Nobel Peace Prize for 2026 to Navanethem "NAVI" Pillay[30] (nobelprize.org[31])
+262 points by Anon84[32] 5 hours ago[33] | hide[34] | 143 comments[33]
+6.
+US imposes sanctions on ICC hours after former judge wins Nobel Peace Prize[35] (reuters.com[36])
+209 points by poly2it[37] 1 hour ago[38] | hide[39] | 74 comments[38]
+7.
+Python 3.15.0[40] (python.org)
+79 points by ngoldbaum 1 hour ago | hide | 25 comments
+8.
+Germany turning abandoned coal mines into 23 lakes, becoming artificial wetland (indiatimes.com)
+28 points by ohjeez 56 minutes ago | hide | 13 comments
+9.
+Why isn't the industry freaking out about DeepSeek 4.1 Flash? (dgt.is)
+944 points by jonotime 21 hours ago | hide | 863 comments
+10.
+Yandex Takes a Second Data Center Hit in 48 Hours (united24media.com)
+131 points by ortusdux 1 hour ago | hide | 118 comments
+11.
+Whistle: Speech to Text in 16.9 MB (cactuscompute.com)
+843 points by gmays 23 hours ago | hide | 169 comments
+12.
+Once: Cache CLI Commands (github.com/alex0ptr)
+53 points by baquero 6 hours ago | hide | 24 comments
+13.
+Man discovers his parents' coffee machine used 1TB of data in 10 days (dexerto.com)
+838 points by ck2 1 day ago | hide | 512 comments
+14.
+MXC - a sandboxed code execution system (github.com/microsoft)
+111 points by nreece 10 hours ago | hide | 56 comments
+15.
+The super intelligence shit is a humiliation ritual for OpenAI (bsky.app/opinionhaver.bsky.social)
+25 points by doener 42 minutes ago | hide | 5 comments
+16.
+Yes, and (htmx.org)
+608 points by Michelangelo11 21 hours ago | hide | 239 comments
+17.
+I hired an illustrator to draw my house. Now it's my Home Assistant dashboard (antonfrolov.substack.com)
+792 points by soheilpro 1 day ago | hide | 172 comments
+18.
+Keyboard differences between Windows and Macs (aresluna.org)
+242 points by sohkamyung 12 hours ago | hide | 196 comments
+19.
+Theranos.world (theranos.world)
+508 points by kbyatnal 21 hours ago | hide | 184 comments
+20.
+Imposing Sanctions on the International Criminal Court (state.gov)
+92 points by TechTechTech 1 hour ago | hide | 69 comments
+21.
+OpenAI fires three safety researchers for "mishandling research information" (techcrunch.com)
+162 points by trakkstar 6 hours ago | hide | 80 comments
+22.
+Study: Exercise increases cancer survival rates (nejm.org)
+45 points by RickJWagner 3 hours ago | hide | 27 comments
+23.
+Iranian campaign planted fake articles in real U.S. publications using ChatGPT (washingtonpost.com)
+119 points by cainxinth 3 hours ago | hide | 107 comments
+24.
+A statement on the Tor Project's relationship with Mullvad (torproject.org)
+5 points by runtimewire 12 minutes ago | hide | discuss
+25.
+Reactions to 100 Solutions (proofsandprompts.com)
+10 points by jacobedawson 3 hours ago | hide | 5 comments
+26.
+Ask HN: What do you run on a $5 VPS that's worth keeping online 24/7?
+328 points by mariocesar 1 day ago | hide | 524 comments
+27.
+The Hetzner Cloud network stack - history and technical overview (hetzner.com)
+56 points by cnkk 3 hours ago | hide | 17 comments
+28.
+The value of not getting to the point (2015) (ken.arneson.name)
+203 points by NaOH 20 hours ago | hide | 70 comments
+29.
+OpenAI, the Partition Principle, and Mathematics (karagila.org)
+166 points by md224 16 hours ago | hide | 249 comments
+30.
+ETH-68: Ethernet Audio Interface for Linux (naturalsystems.io)
+194 points by chabad360 21 hours ago | hide | 120 comments
+More
+Consider applying for YC's Winter 2027 batch! Applications are open till November 2.
+Guidelines | FAQ | Lists | API | Security | Legal | Apply to YC | Contact
+Search:
+
+L1	https://news.ycombinator.com/news
+L2	https://news.ycombinator.com/newest
+L3	https://news.ycombinator.com/front
+L4	https://news.ycombinator.com/newcomments
+L5	https://news.ycombinator.com/ask
+L6	https://news.ycombinator.com/show
+L7	https://news.ycombinator.com/jobs
+L8	https://news.ycombinator.com/submit
+L9	https://news.ycombinator.com/login?goto=news
+L10	https://deno.com/blog/cloudflare
+L11	https://news.ycombinator.com/from?site=deno.com
+L12	https://news.ycombinator.com/user?id=ilreb
+L13	https://news.ycombinator.com/item?id=50019911
+L14	https://news.ycombinator.com/hide?id=50019911&goto=news
+L15	https://oxide.computer/blog/our-445m-series-d
+L16	https://news.ycombinator.com/from?site=oxide.computer
+L17	https://news.ycombinator.com/user?id=ahlCVA
+L18	https://news.ycombinator.com/item?id=50020014
+L19	https://news.ycombinator.com/hide?id=50020014&goto=news
+L20	https://github.com/franzenzenhofer/big-arrow-on-the-screen
+L21	https://news.ycombinator.com/from?site=github.com/franzenzenhofer
+L22	https://news.ycombinator.com/user?id=franze
+L23	https://news.ycombinator.com/item?id=50018817
+L24	https://news.ycombinator.com/hide?id=50018817&goto=news
+L25	https://iminafleeting.com/
+L26	https://news.ycombinator.com/from?site=iminafleeting.com
+L27	https://news.ycombinator.com/user?id=splintersio
+L28	https://news.ycombinator.com/item?id=50018088
+L29	https://news.ycombinator.com/hide?id=50018088&goto=news
+L30	https://www.nobelprize.org/prizes/peace/2026/press-release/
+L31	https://news.ycombinator.com/from?site=nobelprize.org
+L32	https://news.ycombinator.com/user?id=Anon84
+L33	https://news.ycombinator.com/item?id=50018420
+L34	https://news.ycombinator.com/hide?id=50018420&goto=news
+L35	https://www.reuters.com/world/us-imposes-sanctions-international-criminal-court-hours-after-former-judge-wins-2026-10-09/
+L36	https://news.ycombinator.com/from?site=reuters.com
+L37	https://news.ycombinator.com/user?id=poly2it
+L38	https://news.ycombinator.com/item?id=50021066
+L39	https://news.ycombinator.com/hide?id=50021066&goto=news
+L40	https://www.python.org/downloads/release/python-3150/

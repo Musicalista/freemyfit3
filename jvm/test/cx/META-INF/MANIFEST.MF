@@ -1,0 +1,11 @@
+Manifest-Version: 1.0
+MIDlet-Data-Size: 1024000
+MicroEdition-Configuration: CLDC-1.0
+MIDlet-Name: vNes
+MIDlet-Delete-Confirm: more info http://vampent.com/
+MIDlet-Icon: /icons/icon.png
+MIDlet-Vendor: vampent.com
+MIDlet-1: vNes, /icons/icon.png, vNES
+MIDlet-Version: 1.2.0
+MicroEdition-Profile: MIDP-1.0
+

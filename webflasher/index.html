@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#101315">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; worker-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Fit3 Web Flasher</title>
+<link rel="stylesheet" href="style.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div class="brand">Fit3<span>WebFlasher</span></div>
+    <div class="top-controls"><span class="tag">SM-R390 AZA3</span>
+      <div class="lang" role="group" aria-label="Idioma"><button id="langPt" type="button" aria-pressed="true">PT</button><button id="langEn" type="button" aria-pressed="false">EN</button></div>
+    </div>
+  </header>
+
+  <section class="intro">
+    <p class="eyebrow" data-t="eyebrow">INSTALADOR NO NAVEGADOR</p>
+    <h1 data-t="h1">Firmware, apps e jogos<br><span>para o Galaxy Fit3.</span></h1>
+    <p data-t="introp">Tudo roda no seu navegador. Nada é enviado para nenhum servidor; a conexão vai direto do navegador para o relógio pelo Web Serial.</p>
+  </section>
+
+  <div id="unsupported" class="notice" hidden data-t="unsupported">Abra este site em HTTPS (ou um arquivo local) no Chrome ou Edge atual, em um PC. É preciso o navegador suportar Web Serial.</div>
+
+  <section class="connect card">
+    <div class="step">01</div>
+    <div class="grow">
+      <h2 data-t="connectTitle">Conecte o relógio</h2>
+      <p id="connectionText" data-t="connectText">Pareie o Galaxy Fit3 com este computador no Bluetooth do Windows primeiro, e feche o Galaxy Wearable.</p>
+    </div>
+    <button id="connect" type="button" class="button light" disabled data-t="connectBtn">Conectar</button>
+    <button id="disconnect" type="button" class="text-button" hidden data-t="disconnectBtn">Desconectar</button>
+  </section>
+
+  <section class="tabs" aria-label="O que instalar">
+    <button class="tabbtn active" data-tab="fw" data-t="tabFw">Firmware</button>
+    <button class="tabbtn" data-tab="app" data-t="tabApp">App leve (.f3a)</button>
+    <button class="tabbtn" data-tab="jar" data-t="tabJar">Jogo J2ME (.jar)</button>
+  </section>
+
+  <section id="pane-fw" class="pane">
+    <div class="section-heading"><span class="step">02</span><h2 data-t="fwTitle">Escolha o firmware</h2></div>
+    <div id="bundledList" class="choices"></div>
+    <div class="choices">
+      <article class="choice card">
+        <span class="pill" data-t="pillOwn">SEU ARQUIVO</span>
+        <h3 data-t="ownH3">Firmware próprio</h3>
+        <p data-t="ownP">Um pacote FWD (.bin). Verificado por inteiro antes de qualquer envio; sem assinatura do projeto (verificação estrutural só).</p>
+        <button id="chooseFw" class="button secondary" type="button" disabled data-t="chooseBtn">Escolher arquivo</button>
+        <input id="fileFw" type="file" accept=".bin" hidden>
+      </article>
+    </div>
+
+    <section class="risk-warning">
+      <h2 data-t="riskTitle">Atenção: risco de danificar o relógio</h2>
+      <p data-t="riskP">Só o Galaxy Fit3 SM-R390 com R390XXU0AZA3 é suportado. Gravar firmware pode deixar o relógio em ciclo de reinicialização ou inutilizável.</p>
+      <label class="check"><input id="risk" type="checkbox"><span data-t="riskCheck">Entendo e aceito os riscos, e confio no arquivo escolhido.</span></label>
+    </section>
+
+    <section id="selectionFw" class="selection card" hidden>
+      <div class="grow"><h2 data-t="readyH2">Firmware verificado</h2><p id="selectedNameFw"></p><p id="selectedVersionFw"></p><p id="selectedSigFw" class="sigline"></p></div>
+      <button id="prepareFw" class="button primary" type="button" data-t="continueBtn">Continuar</button>
+    </section>
+  </div>
+
+  <section id="pane-app" class="pane" hidden>
+    <div class="section-heading"><span class="step">02</span><h2 data-t="appTitle">Escolha um app .f3a</h2></div>
+    <p data-t="appP">Apps leves (jogos, utilitários) rodam dentro do launcher "Meus apps" do relógio, sem regravar o firmware. Precisa de um firmware com a loja instalada.</p>
+    <button id="chooseApp" class="button secondary" type="button" disabled data-t="chooseBtn">Escolher arquivo</button>
+    <input id="fileApp" type="file" accept=".f3a" hidden>
+    <section id="selectionApp" class="selection card" hidden>
+      <div class="grow"><h2 data-t="readyAppH2">App verificado</h2><p id="selectedNameApp"></p></div>
+      <button id="installApp" class="button primary" type="button" data-t="installBtn">Instalar no relógio</button>
+    </section>
+  </div>
+
+  <section id="pane-jar" class="pane" hidden>
+    <div class="section-heading"><span class="step">02</span><h2 data-t="jarTitle">Escolha um jogo J2ME (.jar)</h2></div>
+    <p data-t="jarP">Instala o player J2ME (na primeira vez) e o jogo. Precisa de um firmware com a loja instalada. Jar de até 1,5 MB.</p>
+    <button id="chooseJar" class="button secondary" type="button" disabled data-t="chooseBtn">Escolher arquivo</button>
+    <input id="fileJar" type="file" accept=".jar" hidden>
+    <section id="selectionJar" class="selection card" hidden>
+      <div class="grow"><h2 data-t="readyJarH2">Jogo verificado</h2><p id="selectedNameJar"></p></div>
+      <button id="installJar" class="button primary" type="button" data-t="installBtn">Instalar no relógio</button>
+    </section>
+  </div>
+
+  <section id="activity" class="activity card" hidden>
+    <div class="status-row"><h2 id="status" role="status" aria-live="polite"></h2><span id="percent"></span></div>
+    <progress id="progress" max="100" value="0"></progress>
+    <p id="statusDetail"></p>
+    <div class="actions">
+      <button id="start" class="button primary" type="button" hidden data-t="startBtn">Iniciar a instalação no relógio</button>
+      <button id="cancel" class="text-button" type="button" hidden data-t="cancelBtn">Cancelar</button>
+    </div>
+  </section>
+
+  <details class="help"><summary data-t="helpSummary">Antes de instalar</summary>
+    <ul>
+      <li data-t="help1">O relógio precisa estar ligado e com Bluetooth acessível. Feche outros programas conectados a ele.</li>
+      <li data-t="help2">Confira a versão em Configurações > Sobre > Informações do software, e carregue acima de 50%.</li>
+      <li data-t="help3">O Web Serial deste navegador só abre o canal que o Windows já criou para o relógio pareado; se a porta serial não existir, nenhuma ferramenta neste navegador consegue gravar.</li>
+    </ul>
+  </details>
+
+  <section id="technical" class="journal card">
+    <div class="status-row"><h2 data-t="logTitle">Registro</h2><button id="saveLog" class="text-button" type="button" data-t="saveLogBtn">Baixar registro</button></div>
+    <pre id="log" role="log" aria-live="polite" tabindex="0"></pre>
+  </section>
+
+  <footer data-t="footer">Fit3 Web Flasher — ferramenta não oficial, sem relação com a Samsung.</footer>
+</main>
+
+<dialog id="confirm"><form method="dialog">
+  <button class="close text-button" value="cancel" aria-label="Fechar">×</button>
+  <p class="eyebrow" data-t="beforeStart">ANTES DE COMEÇAR</p>
+  <h2 data-t="checkWatch">Confira o relógio</h2>
+  <p id="confirmFile"></p>
+  <label class="check"><input id="ready" type="checkbox"><span data-t="readyCheck">Tenho o Galaxy Fit3 na AZA3, carga de 50% ou mais.</span></label>
+  <label class="check"><input id="clean" type="checkbox"><span data-t="cleanCheck">Não há outro pacote OTA antigo no relógio (ou tenho certeza disso).</span></label>
+  <p class="dialog-note" data-t="dialogNote">O arquivo será enviado primeiro; iniciar a instalação é um botão separado.</p>
+  <button id="confirmPrepare" class="button primary wide" value="prepare" disabled data-t="transferBtn">Transferir</button>
+</form></dialog>
+</body></html>
